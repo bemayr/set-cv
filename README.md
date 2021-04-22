@@ -1,2 +1,9 @@
-# set-cv
+# Computer Vision aided Set Instructor (*set-cv*)
+
 supporting the card game Set using computer vision
+
+## Development
+
+```sh
+npm run dev
+```

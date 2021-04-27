@@ -1,0 +1,13 @@
+diff --git a/node_modules/opencv-ts/package.json b/node_modules/opencv-ts/package.json
+index 09c7d10..08720af 100644
+--- a/node_modules/opencv-ts/package.json
++++ b/node_modules/opencv-ts/package.json
+@@ -17,5 +17,8 @@
+     "repository": {
+         "type": "git",
+         "url": "https://github.com/theothergrantdavidson/opencv-ts"
++    },
++    "browser": {
++        "fs": false
+     }
+ }

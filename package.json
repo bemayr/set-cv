@@ -9,7 +9,7 @@
     "dev": "preact watch",
     "lint": "eslint 'src/**/*.{js,jsx,ts,tsx}'",
     "test": "jest ./tests",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package --exclude //"
   },
   "eslintConfig": {
     "parser": "@typescript-eslint/parser",

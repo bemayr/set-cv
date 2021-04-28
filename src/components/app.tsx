@@ -11,7 +11,7 @@ const App: FunctionalComponent = () => {
     return (
         <div id="preact_root">
             <Header />
-            <Router history={createHashHistory() as any}>
+            <Router history={createHashHistory()}>
                 <Route path="/" component={Home} />
                 <Route path="/profile/" component={Profile} user="me" />
                 <Route path="/profile/:user" component={Profile} />

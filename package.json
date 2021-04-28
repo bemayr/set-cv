@@ -22,7 +22,7 @@
     ]
   },
   "dependencies": {
-    "opencv-ts": "^1.2.5",
+    "opencv-ts": "^1.2.6",
     "preact": "^10.3.1",
     "preact-render-to-string": "^5.1.4",
     "preact-router": "^3.2.1"
@@ -38,7 +38,6 @@
     "eslint-config-preact": "^1.1.1",
     "jest": "^26.2.2",
     "jest-preset-preact": "^4.0.2",
-    "patch-package": "^6.4.7",
     "preact-cli": "^3.0.0",
     "sirv-cli": "^1.0.0-next.3",
     "typescript": "^3.7.5"

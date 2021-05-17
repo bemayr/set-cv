@@ -51,11 +51,13 @@ const SetCamera: FunctionalComponent = () => {
         const hierarchy: Mat = new cv.Mat();
         cv.findContours(
           dst,
+          // @ts-ignore
           cnts,
           hierarchy,
           cv.RETR_TREE,
           cv.CHAIN_APPROX_TC89_L1
         );
+        // @ts-ignore
         for (let i = 0; i < cnts.size(); ++i) contours.push(cnts.get(i));
 
         const result = [...contours]
@@ -75,9 +77,11 @@ const SetCamera: FunctionalComponent = () => {
           if(approx.size().height === 4) {
             console.log(cv.contourArea(c));
             if(cv.contourArea(c) > 7000) {
+              // @ts-ignore
               cv.drawContours(dst1, temp, 0, new cv.Scalar(255, 0, 0), 5, cv.LINE_8)
             }
             else {
+              // @ts-ignore
               cv.drawContours(dst1, temp, 0, new cv.Scalar(0, 255, 0), 5, cv.LINE_8)
             }
           }

@@ -16,7 +16,7 @@ const SetCamera: FunctionalComponent = () => {
   };
 
   useEffect(() => {
-    const worker = setTimeout(() => {
+    const worker = setInterval(() => {
       // Take Snapshot
       const imageSrc = webcamRef.current.getScreenshot();
 
@@ -62,7 +62,7 @@ const SetCamera: FunctionalComponent = () => {
 
         const result = [...contours]
           .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
-          .slice(0, 81);
+          .slice(0, 18);
 
         let dst1 = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3)
 
@@ -89,9 +89,9 @@ const SetCamera: FunctionalComponent = () => {
 
         cv.imshow("drawing", dst1);
       });
-    }, 5000);
+    }, 1000);
 
-    return () => clearTimeout(worker);
+    return () => clearInterval(worker);
   }, []);
 
   return (
@@ -104,7 +104,7 @@ const SetCamera: FunctionalComponent = () => {
         ref={webcamRef}
         videoConstraints={videoConstraints}
       />
-      <canvas style={{ position: "absolute" }} id="drawing"></canvas>
+      <canvas style={{ position: "absolute", opacity: .5 }} id="drawing"></canvas>
       <img id="img" src={img} style={{ display: "none" }}></img>
     </div>
   );

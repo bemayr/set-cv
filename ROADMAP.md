@@ -14,6 +14,10 @@
   - https://www.npmjs.com/package/react-webcam
 
 
+React Tracking
+- https://stackoverflow.com/a/45728931
+- 
+
 ## Implementation
 1. 🔳 Create Preact App
 2. 🔳 Intregrate OpenCV
@@ -23,6 +27,7 @@
 5. ⬜ Operate on Camera Stream
 6. ⬜ Extract Cards from Background
    - [Detecting Playing Cards](https://arnab.org/blog/so-i-suck-24-automating-card-games-using-opencv-and-python/) (*python, OpenCV*)
+   - [Javascript Object Detection](https://hub.packtpub.com/object-detection-using-image-features-javascript/)
 7. Detect Sets
    - https://towardsdatascience.com/detecting-set-cards-using-transfer-learning-b297dcf3a564
 8. ⬜ Draw on Camera Image

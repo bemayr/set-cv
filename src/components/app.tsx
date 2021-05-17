@@ -1,22 +1,13 @@
 import { FunctionalComponent, h } from 'preact';
-import { Route, Router } from 'preact-router';
-import { createHashHistory } from 'history';
-
-import Home from '../routes/home';
-import Profile from '../routes/profile';
-import NotFoundPage from '../routes/notfound';
-import Header from './header';
+import { useSizes as useWindowDimensions } from "react-use-sizes";
+import SetCamera from './camera';
 
 const App: FunctionalComponent = () => {
+    const dimensions = useWindowDimensions();
+
     return (
         <div id="preact_root">
-            <Header />
-            <Router history={createHashHistory()}>
-                <Route path="/" component={Home} />
-                <Route path="/profile/" component={Profile} user="me" />
-                <Route path="/profile/:user" component={Profile} />
-                <NotFoundPage default />
-            </Router>
+            <SetCamera/>
         </div>
     );
 };

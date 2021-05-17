@@ -15,59 +15,78 @@ const SetCamera: FunctionalComponent = () => {
     facingMode: { exact: "environment" },
   };
 
-  // useEffect(() => {
-  //   const worker = setTimeout(() => {
-  //     const imageSrc = webcamRef.current.getScreenshot();
-  //     document.getElementById("img")!.src = imageSrc
-  //   }, 2000)
-
-  //   return () => clearTimeout(worker)
-  // }, [])
-
   useEffect(() => {
     const worker = setTimeout(() => {
+      // Take Snapshot
       const imageSrc = webcamRef.current.getScreenshot();
+
+      // Create temporary img-element for OpenCV
       let element = document.createElement("img");
-      // element.addEventListener("change", () => {
-      //   console.log("changed")
-      // })
-      element.src = imageSrc
-      // element.width = windowSize.width
-      // element.height = windowSize.height
-      // document.getElementById('preact_root')!.appendChild(element);
-      //@ts-ignore
-      // const imageSrc = webcamRef.current.getScreenshot();
-      // document.getElementById("img")!.src = imageSrc
+      element.src = imageSrc;
+
       setTimeout(() => {
-
-        const src = cv.imread(element)
-        console.log({src})
-        
+        // @ts-ignore
+        const src = cv.imread(element);
         const dst: Mat = new cv.Mat(src.cols, src.rows, cv.CV_8UC4);
-        
-        cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-        
-        cv.imshow('drawing', dst);
-      })
-    }, 5000)
 
-    return () => clearTimeout(worker)
-  }, [])
+        cv.cvtColor(src, dst, cv.COLOR_BGR2GRAY);
+
+        // --- FAR FROM IDEAL ---
+        // cv.GaussianBlur(dst, dst, new cv.Size(1, 1), 1000, 0, cv.BORDER_DEFAULT)
+        // cv.threshold(dst, dst, 120, 255, cv.THRESH_BINARY)
+
+        // --- NOT IDEAL ---
+        // cv.GaussianBlur(dst, dst, new cv.Size(1, 1), 1000, 0, cv.BORDER_DEFAULT)
+        // cv.adaptiveThreshold(dst, dst, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
+
+        cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+        cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+
+        const contours = [];
+        const cnts = new cv.MatVector();
+        const hierarchy: Mat = new cv.Mat();
+        cv.findContours(
+          dst,
+          cnts,
+          hierarchy,
+          cv.RETR_TREE,
+          cv.CHAIN_APPROX_SIMPLE
+        );
+        for (let i = 0; i < cnts.size(); ++i) contours.push(cnts.get(i));
+
+        const result = [...contours]
+          .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
+          .slice(0, 5);
+
+        let dst1 = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3)
+
+        result.forEach((c, i) => {
+          const temp = new cv.MatVector()
+          temp.push_back(c)
+          cv.drawContours(dst1, temp, 0, new cv.Scalar(255, 0, 0), 5, cv.LINE_8)
+          console.log(cv.contourArea(c));
+        });
+
+        cv.imshow("drawing", dst1);
+      });
+    }, 5000);
+
+    return () => clearTimeout(worker);
+  }, []);
 
   return (
     <div>
-
-    <Webcam
-      style={{ position: "absolute" }}
-      screenshotFormat="image/jpeg"
-      audio={false}
-      //@ts-ignore
-      ref={webcamRef}
-      videoConstraints={videoConstraints}
+      <Webcam
+        style={{ position: "absolute" }}
+        screenshotFormat="image/jpeg"
+        audio={false}
+        //@ts-ignore
+        ref={webcamRef}
+        videoConstraints={videoConstraints}
       />
       <canvas style={{ position: "absolute" }} id="drawing"></canvas>
-      <img id="img" src={img} style={{display: "none"}}></img>
-      </div>
+      <img id="img" src={img} style={{ display: "none" }}></img>
+    </div>
   );
 };
 

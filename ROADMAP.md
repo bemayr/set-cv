@@ -23,8 +23,8 @@ React Tracking
 2. 🔳 Intregrate OpenCV
    - We used [https://github.com/theothergrantdavidson/opencv-ts#readme](opencv-ts), and even contributed some Webpack Setup back.
 3. 🔳 Set-Up Github Actions
-4. ⬜ Access Webcam
-5. ⬜ Operate on Camera Stream
+4. 🔳 Access Webcam
+5. 🔳 Operate on Camera Stream
 6. ⬜ Extract Cards from Background
    - [Detecting Playing Cards](https://arnab.org/blog/so-i-suck-24-automating-card-games-using-opencv-and-python/) (*python, OpenCV*)
    - [Javascript Object Detection](https://hub.packtpub.com/object-detection-using-image-features-javascript/)

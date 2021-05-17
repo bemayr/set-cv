@@ -60,15 +60,27 @@ const SetCamera: FunctionalComponent = () => {
 
         const result = [...contours]
           .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
-          .slice(0, 8);
+          .slice(0, 81);
 
         let dst1 = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3)
 
         result.forEach((c, i) => {
           const temp = new cv.MatVector()
           temp.push_back(c)
-          cv.drawContours(dst1, temp, 0, new cv.Scalar(255, 0, 0), 5, cv.LINE_8)
-          console.log(cv.contourArea(c));
+
+          const peri = cv.arcLength(c, true)
+          const approx = new cv.Mat();
+          cv.approxPolyDP(c, approx, 0.04 * peri, true)
+
+          if(approx.size().height === 4) {
+            console.log(cv.contourArea(c));
+            if(cv.contourArea(c) > 7000) {
+              cv.drawContours(dst1, temp, 0, new cv.Scalar(255, 0, 0), 5, cv.LINE_8)
+            }
+            else {
+              cv.drawContours(dst1, temp, 0, new cv.Scalar(0, 255, 0), 5, cv.LINE_8)
+            }
+          }
         });
 
         cv.imshow("drawing", dst1);

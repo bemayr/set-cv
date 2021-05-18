@@ -1,4 +1,4 @@
-import { useService } from "@xstate/react";
+import { useInterpret, useMachine, useService } from "@xstate/react";
 import cv, { Mat, Rect } from "opencv-ts";
 import { createRef, FunctionalComponent, h } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
@@ -6,17 +6,7 @@ import { useSizes as useWindowDimensions } from "react-use-sizes";
 import Webcam from "react-webcam";
 import { createMachine, interpret } from "xstate";
 
-// @ts-ignore
-// // Module = {
-// //   onRuntimeInitialized() {
-// //     setTimeout(() => {
-// //       // this is our application:
-// //       console.log(cv.getBuildInformation());
-// //     }, 0);
-// //   },
-// // };
-
-const toggleMachine = createMachine({
+const machine = createMachine({
   id: "toggle",
   initial: "initializing",
   states: {
@@ -30,9 +20,9 @@ const toggleMachine = createMachine({
               on: { RUNTIME_INITIALIZED: "ready" },
             },
             ready: {
-              type: "final"
-            }
-          }
+              type: "final",
+            },
+          },
         },
         camera: {
           initial: "waiting",
@@ -41,28 +31,66 @@ const toggleMachine = createMachine({
               on: { WEBCAM_READY: "ready" },
             },
             ready: {
-              type: "final"
-            }
-          }
+              type: "final",
+            },
+          },
         },
       },
-      onDone: "idle"
+      onDone: "detecting",
     },
-    idle: {},
+    detecting: {
+      on: {
+        TOGGLE: "paused",
+      },
+      invoke: {
+        src: "detect",
+      },
+    },
+    paused: {
+      on: {
+        TOGGLE: "detecting",
+      },
+    },
   },
 });
 
-const service = interpret(toggleMachine);
-service.start();
-
-cv.onRuntimeInitialized = () => service.send("RUNTIME_INITIALIZED");
-
 const SetCamera: FunctionalComponent = () => {
-  const [rect] = useState(new cv.Rect(0, 0, 200, 200));
-  const [img, setImg] = useState("");
-  const [state, send] = useService(service);
-  const { windowSize } = useWindowDimensions();
   const webcamRef = useRef(null);
+  const [state, send] = useMachine(machine, {
+    services: {
+      detect: () => (send) => {
+        // @ts-ignore
+        const video = webcamRef.current.base;
+        const src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+        const dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+        const cap = new cv.VideoCapture(video);
+
+        const FPS = 30;
+        function processVideo() {
+          try {
+            let begin = Date.now();
+            // start processing.
+            cap.read(src);
+            cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
+            cv.imshow("drawing", dst);
+            // schedule the next one.
+            let delay = 1000 / FPS - (Date.now() - begin);
+            setTimeout(processVideo, delay);
+          } catch (err) {
+            console.error(err);
+          }
+        }
+
+        processVideo();
+
+        return () => {
+          src.delete();
+          dst.delete();
+        };
+      },
+    },
+  });
+  const { windowSize } = useWindowDimensions();
 
   const videoConstraints = {
     width: windowSize.width,
@@ -71,41 +99,8 @@ const SetCamera: FunctionalComponent = () => {
   };
 
   useEffect(() => {
-    // const video = document.getElementById('live-video');
-    // console.log({video, webcam: webcamRef.current.base})
-
-    setTimeout(() => {
-      console.log({webcam: webcamRef})
-      // @ts-ignore
-      const video = webcamRef.current.base;
-      const src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-      const dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
-      const cap = new cv.VideoCapture(video);
-
-      const FPS = 30;
-      function processVideo() {
-        try {
-          let begin = Date.now();
-          // start processing.
-          cap.read(src);
-          cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-          cv.imshow("drawing", dst);
-          // schedule the next one.
-          let delay = 1000 / FPS - (Date.now() - begin);
-          setTimeout(processVideo, delay);
-        } catch (err) {
-          console.error(err);
-        }
-      }
-
-      processVideo();
-    }, 3000);
-
-    // return () => {
-    //   src.delete();
-    //   dst.delete();
-    // };
-  }, []);
+    cv.onRuntimeInitialized = () => send("RUNTIME_INITIALIZED");
+  });
 
   // useEffect(() => {
   //   const worker = setInterval(() => {
@@ -210,10 +205,15 @@ const SetCamera: FunctionalComponent = () => {
         style={{ position: "absolute", opacity: 0.5 }}
         id="drawing"
       ></canvas>
-      <p
+      <p style={{ position: "absolute", color: "white" }}>
+        {JSON.stringify(state.value, null, 2)}
+      </p>
+      <button
         style={{ position: "absolute", color: "white" }}
-      >{JSON.stringify(state.value, null, 2)}</p>
-      <img id="img" src={img} style={{ display: "none" }}></img>
+        onClick={() => send("TOGGLE")}
+      >
+        Toggle
+      </button>
     </div>
   );
 };

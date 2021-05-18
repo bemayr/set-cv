@@ -1,8 +1,10 @@
+import { useService } from "@xstate/react";
 import cv, { Mat, Rect } from "opencv-ts";
 import { createRef, FunctionalComponent, h } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { useSizes as useWindowDimensions } from "react-use-sizes";
 import Webcam from "react-webcam";
+import { createMachine, interpret } from "xstate";
 
 // @ts-ignore
 // // Module = {
@@ -14,11 +16,53 @@ import Webcam from "react-webcam";
 // //   },
 // // };
 
+const toggleMachine = createMachine({
+  id: "toggle",
+  initial: "initializing",
+  states: {
+    initializing: {
+      type: "parallel",
+      states: {
+        opencv: {
+          initial: "ready",
+          states: {
+            waiting: {
+              on: { RUNTIME_INITIALIZED: "ready" },
+            },
+            ready: {
+              type: "final"
+            }
+          }
+        },
+        camera: {
+          initial: "waiting",
+          states: {
+            waiting: {
+              on: { WEBCAM_READY: "ready" },
+            },
+            ready: {
+              type: "final"
+            }
+          }
+        },
+      },
+      onDone: "idle"
+    },
+    idle: {},
+  },
+});
+
+const service = interpret(toggleMachine);
+service.start();
+
+cv.onRuntimeInitialized = () => service.send("RUNTIME_INITIALIZED");
+
 const SetCamera: FunctionalComponent = () => {
   const [rect] = useState(new cv.Rect(0, 0, 200, 200));
   const [img, setImg] = useState("");
+  const [state, send] = useService(service);
   const { windowSize } = useWindowDimensions();
-  const webcamRef = createRef<Webcam>();
+  const webcamRef = useRef(null);
 
   const videoConstraints = {
     width: windowSize.width,
@@ -29,15 +73,14 @@ const SetCamera: FunctionalComponent = () => {
   useEffect(() => {
     // const video = document.getElementById('live-video');
     // console.log({video, webcam: webcamRef.current.base})
-    
+
     setTimeout(() => {
+      console.log({webcam: webcamRef})
       // @ts-ignore
       const video = webcamRef.current.base;
       const src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
       const dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
       const cap = new cv.VideoCapture(video);
-
-      console.log(video);
 
       const FPS = 30;
       function processVideo() {
@@ -46,7 +89,7 @@ const SetCamera: FunctionalComponent = () => {
           // start processing.
           cap.read(src);
           cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-          cv.imshow('drawing', dst);
+          cv.imshow("drawing", dst);
           // schedule the next one.
           let delay = 1000 / FPS - (Date.now() - begin);
           setTimeout(processVideo, delay);
@@ -161,11 +204,15 @@ const SetCamera: FunctionalComponent = () => {
         width={windowSize.width}
         height={windowSize.height}
         videoConstraints={videoConstraints}
+        onUserMedia={() => send("WEBCAM_READY")}
       />
       <canvas
         style={{ position: "absolute", opacity: 0.5 }}
         id="drawing"
       ></canvas>
+      <p
+        style={{ position: "absolute", color: "white" }}
+      >{JSON.stringify(state.value, null, 2)}</p>
       <img id="img" src={img} style={{ display: "none" }}></img>
     </div>
   );

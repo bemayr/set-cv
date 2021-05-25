@@ -56,6 +56,7 @@ const machine = createMachine({
 
 const SetCamera: FunctionalComponent = () => {
   const webcamRef = useRef(null);
+  const thresholdRef = useRef(null);
   const overlayRef = useRef(null);
   const [state, send] = useMachine(machine, {
     services: {
@@ -71,7 +72,7 @@ const SetCamera: FunctionalComponent = () => {
 
         let timeout: NodeJS.Timeout;
 
-        const FPS = 2;
+        const FPS = 30;
         function processVideo() {
           try {
             let begin = Date.now();
@@ -84,20 +85,21 @@ const SetCamera: FunctionalComponent = () => {
             // cv.threshold(dst, dst, 120, 255, cv.THRESH_BINARY)
 
             // --- NOT IDEAL ---
-            // cv.GaussianBlur(dst, dst, new cv.Size(1, 1), 1000, 0, cv.BORDER_DEFAULT)
-            // cv.adaptiveThreshold(dst, dst, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
+            cv.GaussianBlur(dst, dst, new cv.Size(1, 1), 1000, 0, cv.BORDER_DEFAULT)
+            cv.adaptiveThreshold(dst, dst, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
 
             // // --- C++ Set Solution, not ideal as well ---
-            cv.normalize(dst, dst, 0, 255, cv.NORM_MINMAX);
-            cv.adaptiveThreshold(
-              dst,
-              dst,
-              255,
-              cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-              cv.THRESH_BINARY,
-              181,
-              10
-            );
+            // cv.normalize(dst, dst, 0, 255, cv.NORM_MINMAX);
+            // cv.adaptiveThreshold(
+            //   dst,
+            //   dst,
+            //   255,
+            //   cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+            //   cv.THRESH_BINARY,
+            //   181,
+            //   10
+            // );
+            // cv.imshow(thresholdRef.current!, dst);
 
             // cv.GaussianBlur(
             //   dst,
@@ -108,6 +110,7 @@ const SetCamera: FunctionalComponent = () => {
             //   cv.BORDER_DEFAULT
             // );
             // cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+            cv.imshow(thresholdRef.current!, dst);
 
             const contours = [];
 
@@ -195,8 +198,8 @@ const SetCamera: FunctionalComponent = () => {
   const { windowSize } = useWindowDimensions();
 
   const videoConstraints = {
-    width: windowSize.width,
-    height: windowSize.height,
+    width: 300, //windowSize.width,
+    height: 200, //windowSize.height,
     facingMode: { exact: "environment" },
   };
 
@@ -213,8 +216,8 @@ const SetCamera: FunctionalComponent = () => {
         audio={false}
         //@ts-ignore
         ref={webcamRef}
-        width={windowSize.width}
-        height={windowSize.height}
+        width={300}//{windowSize.width}
+        height={200}//{windowSize.height}
         videoConstraints={videoConstraints}
         onUserMedia={() => send("WEBCAM_READY")}
       />
@@ -234,6 +237,21 @@ const SetCamera: FunctionalComponent = () => {
           color: "white",
         }}
       >
+        <div
+          style={{
+            margin: "10px",
+          }}
+        >
+          <p style={{ margin: "2px" }}>Threshold</p>
+          <canvas
+            ref={thresholdRef}
+            style={{
+              height: "20vh",
+              minHeight: "150px",
+              border: "1px white solid"
+            }}
+          ></canvas>
+        </div>
         <div
           style={{
             margin: "10px",

@@ -298,7 +298,7 @@ const SetCamera: FunctionalComponent = () => {
         ref={videoRef}
         width={videoWidth}
         height={videoHeight}
-        onLoadedMetadata={() => send("WEBCAM_READY")}
+        // onLoadedMetadata={() => send("WEBCAM_READY")}
         // height={600}
       ></video>
       {/* <canvas

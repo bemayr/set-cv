@@ -4,6 +4,7 @@ import { createRef, FunctionalComponent, h } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { useSizes as useWindowDimensions } from "react-use-sizes";
 import Webcam from "react-webcam";
+import { useDidMount, useRaf } from "rooks";
 import { assign, createMachine, interpret } from "xstate";
 import useOrientationChange from "../../hooks/use-orientation-change";
 
@@ -143,7 +144,7 @@ const SetCamera: FunctionalComponent = () => {
         //   cv.BORDER_DEFAULT
         // );
         // cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-        cv.imshow(thresholdRef.current!, src);
+        cv.imshow(thresholdRef.current!, dst);
 
         const contours = [];
 
@@ -222,34 +223,30 @@ const SetCamera: FunctionalComponent = () => {
   });
   const { windowSize } = useWindowDimensions();
 
-  const orientation = useOrientationChange()
+  const orientation = useOrientationChange();
 
   const videoConstraints = {
-    width: 300, //windowSize.width,
-    height: 200, //windowSize.height,
+    width: 320, //windowSize.width,
+    height: 240, //windowSize.height,
     facingMode: { exact: "environment" },
   };
 
-  useEffect(() => {
+  useDidMount(() => {
     cv.onRuntimeInitialized = () => send("RUNTIME_INITIALIZED");
   });
 
-  const FPS = 30;
-  useEffect(() => {
-    const interval = setInterval(() => send("SCAN"), 1000 / FPS);
-    return () => clearInterval(interval);
-  }, []);
+  useRaf(() => send("SCAN"), true);
 
   return (
     <div>
       <Webcam
         id="live-video"
-        style={{ position: "absolute" }}
+        style={{ position: "absolute", backgroundColor: "blue", width: "100vw", height: "100vh", objectFit: "cover" }}
         audio={false}
         //@ts-ignore
         ref={webcamRef}
-        width={300} //{windowSize.width}
-        height={200} //{windowSize.height}
+        width={320} //{windowSize.width}
+        height={240} //{windowSize.height}
         videoConstraints={videoConstraints}
         onUserMedia={() => send("WEBCAM_READY")}
       />

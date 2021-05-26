@@ -29,6 +29,7 @@
     "preact-router": "^3.2.1",
     "react-use-sizes": "^1.0.8",
     "react-webcam": "^5.2.3",
+    "rooks": "^5.0.2",
     "xstate": "^4.19.1"
   },
   "devDependencies": {

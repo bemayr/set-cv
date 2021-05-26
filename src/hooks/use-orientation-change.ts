@@ -1,25 +1,17 @@
 import { useState, useEffect } from "react";
 
 export default function useOrientationChange() {
-  const [orientation, setOrientation] = useState(window.orientation);
+  const [orientation, setOrientation] = useState(screen.orientation.type);
 
   useEffect(() => {
-    const handler = (event: any) => {
-      console.log(event.orientation);
-      console.log(window.orientation);
-      setOrientation(window.orientation);
-    };
+    const handler = () => setOrientation(screen.orientation.type);
 
-    window.addEventListener("orientationchange", handler);
-
-    console.log("registered handler")
-    console.log(window.orientation);
-    console.log(window.orientation)
+    screen.orientation.addEventListener("change", handler);
 
     return () => {
-      window.removeEventListener("orientationchange", handler);
+      screen.orientation.removeEventListener("change", handler);
     };
   }, []);
 
-  return orientation === 0 ? "portrait" : "landscape"; // for -90 (right) and 90 (left)
+  return orientation.startsWith("portrait") ? "portrait" : "landscape";
 }

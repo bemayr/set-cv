@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { useSizes as useWindowDimensions } from "react-use-sizes";
 import Webcam from "react-webcam";
 import { assign, createMachine, interpret } from "xstate";
+import useOrientationChange from "../../hooks/use-orientation-change";
 
 const machine = createMachine({
   id: "toggle",
@@ -221,6 +222,8 @@ const SetCamera: FunctionalComponent = () => {
   });
   const { windowSize } = useWindowDimensions();
 
+  const orientation = useOrientationChange()
+
   const videoConstraints = {
     width: 300, //windowSize.width,
     height: 200, //windowSize.height,
@@ -300,6 +303,7 @@ const SetCamera: FunctionalComponent = () => {
       <div style={{ position: "absolute", backgroundColor: "white" }}>
         <p>{JSON.stringify(state.value, null, 2)}</p>
         <button onClick={() => send("TOGGLE")}>Pause/Unpause</button>
+        <p>Orientation: {orientation}</p>
       </div>
     </div>
   );

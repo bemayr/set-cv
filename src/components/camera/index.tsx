@@ -230,6 +230,7 @@ const SetCamera: FunctionalComponent = () => {
   const videoConstraints = {
     width: width,
     height: height,
+    aspectRatio: width / height,
     facingMode: { exact: "environment" },
   };
 

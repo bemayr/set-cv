@@ -1,7 +1,7 @@
 import { useMachine } from "@xstate/react";
 import cv, { Mat } from "opencv-ts";
 import { FunctionalComponent, h } from "preact";
-import { useRef } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import { useSizes as useWindowDimensions } from "react-use-sizes";
 import Webcam from "react-webcam";
 import { useDidMount, useInterval } from "rooks";
@@ -37,9 +37,11 @@ const machine = createMachine({
           },
         },
       },
-      onDone: { target: "detecting", actions: ["initialize"] },
+      onDone: { target: "detecting" },
     },
     detecting: {
+      entry: ['initialize'],
+      exit: ['cleanup'],
       on: {
         TOGGLE: "paused",
       },
@@ -84,14 +86,19 @@ const SetCamera: FunctionalComponent = () => {
         cap.read(src);
         return { src, cap };
       }),
+      cleanup: (context) => {
+        context.src.delete();
+      },
     },
     services: {
       detect: (context) => {
+        
         // @ts-ignore
-        const video = webcamRef.current.base;
+        const video = videoRef.current;
         const src = context.src;
         const cap = context.cap;
         const dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+
 
         const cnts = new cv.MatVector();
         const hierarchy: Mat = new cv.Mat();
@@ -109,7 +116,7 @@ const SetCamera: FunctionalComponent = () => {
         cv.GaussianBlur(
           dst,
           dst,
-          new cv.Size(1, 1),
+          new cv.Size(5, 5),
           1000,
           0,
           cv.BORDER_DEFAULT
@@ -223,18 +230,16 @@ const SetCamera: FunctionalComponent = () => {
       },
     },
   });
-  const {
-    windowSize: { width, height },
-  } = useWindowDimensions();
-  const MAX = 600;
-  const scale = Math.min(MAX / width, MAX / height);
+  
+  const [{width: videoWidth, height: videoHeight}, setVideoSize] = useState({width: 0, height: 0});
 
-  const videoConstraints: MediaTrackConstraints = {
-    width: width,
-    height: height,
-    aspectRatio: {exact: width / height},
-    facingMode: { exact: "user" },
-  };
+  const constraints: MediaStreamConstraints = {
+    video: {
+      width: { ideal: 4096 },
+      height: { ideal: 2160 } ,
+    facingMode: { exact: "environment" },
+  } 
+  }
 
   useDidMount(() => {
     cv.onRuntimeInitialized = () => send("RUNTIME_INITIALIZED");
@@ -243,11 +248,12 @@ const SetCamera: FunctionalComponent = () => {
   useDidMount(() => {
     if (navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices
-        .getUserMedia({ video: videoConstraints })
+        .getUserMedia(constraints)
         .then(function (stream) {
-          console.table(stream.getVideoTracks()[0].getCapabilities())
-          console.table(stream.getVideoTracks()[0].getConstraints())
-          console.table(stream.getVideoTracks()[0].getSettings())
+          const {width, height} = stream.getVideoTracks()[0].getSettings()
+          const MAX = 600;
+          const scale = Math.min(MAX / width!, MAX / height!);
+          setVideoSize({width: width! * scale, height: height! * scale})
           videoRef.current.srcObject = stream;
         })
         .catch(function (error) {
@@ -287,10 +293,13 @@ const SetCamera: FunctionalComponent = () => {
           position: "absolute",
           width: "100vw",
           height: "100vh",
+          background: "black"
         }}
         ref={videoRef}
-        width={width * scale}
-        height={height * scale}
+        width={videoWidth}
+        height={videoHeight}
+        onLoadedMetadata={() => send("WEBCAM_READY")}
+        // height={600}
       ></video>
       {/* <canvas
         ref={overlayRef}
@@ -347,7 +356,7 @@ const SetCamera: FunctionalComponent = () => {
         }}
       >
         <p>State: {JSON.stringify(state.value, null, 2)}</p>
-        <p>Dimensions: {JSON.stringify({ width, height }, null, 2)}</p>
+        <p>Video Dimensions: {JSON.stringify({ videoWidth, videoHeight }, null, 2)}</p>
         <button onClick={() => send("TOGGLE")}>
           {state.hasTag("paused") ? "Resume" : "Pause"}
         </button>

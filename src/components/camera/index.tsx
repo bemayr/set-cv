@@ -1,12 +1,11 @@
-import { useInterpret, useMachine, useService } from "@xstate/react";
-import cv, { Mat, Rect } from "opencv-ts";
-import { createRef, FunctionalComponent, h } from "preact";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useMachine } from "@xstate/react";
+import cv, { Mat } from "opencv-ts";
+import { FunctionalComponent, h } from "preact";
+import { useRef } from "preact/hooks";
 import { useSizes as useWindowDimensions } from "react-use-sizes";
 import Webcam from "react-webcam";
-import { useDidMount, useRaf } from "rooks";
-import { assign, createMachine, interpret } from "xstate";
-import useOrientationChange from "../../hooks/use-orientation-change";
+import { useDidMount, useInterval } from "rooks";
+import { assign, createMachine } from "xstate";
 
 const machine = createMachine({
   id: "toggle",
@@ -222,7 +221,7 @@ const SetCamera: FunctionalComponent = () => {
     },
   });
   const { windowSize: {width, height} } = useWindowDimensions();
-  const MAX = 300;
+  const MAX = 600;
   const scale = Math.min(MAX/width, MAX/height)
 
   const videoConstraints = {
@@ -235,7 +234,9 @@ const SetCamera: FunctionalComponent = () => {
     cv.onRuntimeInitialized = () => send("RUNTIME_INITIALIZED");
   });
 
-  useRaf(() => send("SCAN"), true);
+  const FPS = 5;
+  // useRaf(() => send("SCAN"), true);
+  useInterval(() => send("SCAN"), 1000 / FPS, true);
 
   return (
     <div>

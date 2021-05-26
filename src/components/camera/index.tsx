@@ -221,13 +221,25 @@ const SetCamera: FunctionalComponent = () => {
       },
     },
   });
-  const { windowSize } = useWindowDimensions();
+  const { windowSize: {width, height} } = useWindowDimensions();
+  const MAX = 300;
+  const scale = Math.min(MAX/width, MAX/height)
 
-  const orientation = useOrientationChange();
+  // console.log(scale)
+
+  // const orientation = useOrientationChange();
+
+  // useDidMount(() => console.log(windowSize.width / windowSize.height));
 
   const videoConstraints = {
-    width: 320, //windowSize.width,
-    height: 240, //windowSize.height,
+    // width: 3000,
+    // height: 2000,
+    width: width,
+    height: height,
+    
+    // aspectRatio: 1.5,
+    // aspectRatio: width / height,
+    
     facingMode: { exact: "environment" },
   };
 
@@ -241,12 +253,17 @@ const SetCamera: FunctionalComponent = () => {
     <div>
       <Webcam
         id="live-video"
-        style={{ position: "absolute", backgroundColor: "blue", width: "100vw", height: "100vh", objectFit: "cover" }}
+        style={{
+          position: "absolute",
+          width: "100vw",
+          height: "100vh",
+          objectFit: "cover",
+        }}
         audio={false}
         //@ts-ignore
         ref={webcamRef}
-        width={320} //{windowSize.width}
-        height={240} //{windowSize.height}
+        width={width * scale} //{windowSize.width}
+        height={height * scale} //{windowSize.height}
         videoConstraints={videoConstraints}
         onUserMedia={() => send("WEBCAM_READY")}
       />
@@ -300,7 +317,7 @@ const SetCamera: FunctionalComponent = () => {
       <div style={{ position: "absolute", backgroundColor: "white" }}>
         <p>{JSON.stringify(state.value, null, 2)}</p>
         <button onClick={() => send("TOGGLE")}>Pause/Unpause</button>
-        <p>Orientation: {orientation}</p>
+        {/* <p>Orientation: {orientation}</p> */}
       </div>
     </div>
   );

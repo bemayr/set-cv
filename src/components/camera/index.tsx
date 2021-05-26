@@ -69,6 +69,7 @@ const machine = createMachine({
 
 const SetCamera: FunctionalComponent = () => {
   const webcamRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const thresholdRef = useRef(null);
   const overlayRef = useRef(null);
   const [state, send] = useMachine(machine, {
@@ -76,7 +77,8 @@ const SetCamera: FunctionalComponent = () => {
     actions: {
       initialize: assign(() => {
         // @ts-ignore
-        const video = webcamRef.current.base;
+        // const video = webcamRef.current.base;
+        const video = videoRef.current;
         const src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
         const cap = new cv.VideoCapture(video);
         cap.read(src);
@@ -227,15 +229,31 @@ const SetCamera: FunctionalComponent = () => {
   const MAX = 600;
   const scale = Math.min(MAX / width, MAX / height);
 
-  const videoConstraints = {
+  const videoConstraints: MediaTrackConstraints = {
     width: width,
     height: height,
-    aspectRatio: width / height,
-    facingMode: { exact: "environment" },
+    aspectRatio: {exact: width / height},
+    facingMode: { exact: "user" },
   };
 
   useDidMount(() => {
     cv.onRuntimeInitialized = () => send("RUNTIME_INITIALIZED");
+  });
+
+  useDidMount(() => {
+    if (navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ video: videoConstraints })
+        .then(function (stream) {
+          console.table(stream.getVideoTracks()[0].getCapabilities())
+          console.table(stream.getVideoTracks()[0].getConstraints())
+          console.table(stream.getVideoTracks()[0].getSettings())
+          videoRef.current.srcObject = stream;
+        })
+        .catch(function (error) {
+          console.error(error);
+        });
+    }
   });
 
   const FPS = 5;
@@ -244,7 +262,7 @@ const SetCamera: FunctionalComponent = () => {
 
   return (
     <div>
-      <Webcam
+      {/* <Webcam
         id="live-video"
         style={{
           position: "absolute",
@@ -262,7 +280,18 @@ const SetCamera: FunctionalComponent = () => {
           console.log({settings: stream.getVideoTracks()[0].getSettings()})
           send("WEBCAM_READY");
         }}
-      />
+      /> */}
+      <video
+        autoPlay={true}
+        style={{
+          position: "absolute",
+          width: "100vw",
+          height: "100vh",
+        }}
+        ref={videoRef}
+        width={width * scale}
+        height={height * scale}
+      ></video>
       {/* <canvas
         ref={overlayRef}
         style={{ position: "absolute", opacity: 0.95 }}

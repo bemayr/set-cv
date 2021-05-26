@@ -225,21 +225,9 @@ const SetCamera: FunctionalComponent = () => {
   const MAX = 300;
   const scale = Math.min(MAX/width, MAX/height)
 
-  // console.log(scale)
-
-  // const orientation = useOrientationChange();
-
-  // useDidMount(() => console.log(windowSize.width / windowSize.height));
-
   const videoConstraints = {
-    // width: 3000,
-    // height: 2000,
     width: width,
     height: height,
-    
-    // aspectRatio: 1.5,
-    // aspectRatio: width / height,
-    
     facingMode: { exact: "environment" },
   };
 
@@ -257,13 +245,12 @@ const SetCamera: FunctionalComponent = () => {
           position: "absolute",
           width: "100vw",
           height: "100vh",
-          objectFit: "cover",
         }}
         audio={false}
         //@ts-ignore
         ref={webcamRef}
-        width={width * scale} //{windowSize.width}
-        height={height * scale} //{windowSize.height}
+        width={width * scale}
+        height={height * scale}
         videoConstraints={videoConstraints}
         onUserMedia={() => send("WEBCAM_READY")}
       />

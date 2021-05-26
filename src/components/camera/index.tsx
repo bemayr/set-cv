@@ -258,7 +258,8 @@ const SetCamera: FunctionalComponent = () => {
         height={height * scale}
         videoConstraints={videoConstraints}
         onUserMedia={(stream) => {
-          console.log(stream.getVideoTracks()[0].getSettings())
+          console.log(navigator.mediaDevices.getSupportedConstraints())
+          console.log({settings: stream.getVideoTracks()[0].getSettings()})
           send("WEBCAM_READY");
         }}
       />

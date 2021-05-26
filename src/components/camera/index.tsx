@@ -59,6 +59,7 @@ const machine = createMachine({
       },
     },
     paused: {
+      tags: "paused",
       on: {
         TOGGLE: "detecting",
       },
@@ -302,10 +303,10 @@ const SetCamera: FunctionalComponent = () => {
           ></canvas>
         </div>
       </div>
-      <div style={{ position: "absolute", backgroundColor: "white" }}>
-        <p>{JSON.stringify(state.value, null, 2)}</p>
-        <button onClick={() => send("TOGGLE")}>Pause/Unpause</button>
-        {/* <p>Orientation: {orientation}</p> */}
+      <div style={{ position: "absolute", backgroundColor: "white", padding: "1em" }}>
+        <p>State: {JSON.stringify(state.value, null, 2)}</p>
+        <p>Dimensions: {JSON.stringify({width, height}, null, 2)}</p>
+        <button onClick={() => send("TOGGLE")}>{state.hasTag("paused") ? "Resume" : "Pause"}</button>
       </div>
     </div>
   );

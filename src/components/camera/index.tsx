@@ -221,9 +221,11 @@ const SetCamera: FunctionalComponent = () => {
       },
     },
   });
-  const { windowSize: {width, height} } = useWindowDimensions();
+  const {
+    windowSize: { width, height },
+  } = useWindowDimensions();
   const MAX = 600;
-  const scale = Math.min(MAX/width, MAX/height)
+  const scale = Math.min(MAX / width, MAX / height);
 
   const videoConstraints = {
     width: width,
@@ -254,7 +256,10 @@ const SetCamera: FunctionalComponent = () => {
         width={width * scale}
         height={height * scale}
         videoConstraints={videoConstraints}
-        onUserMedia={() => send("WEBCAM_READY")}
+        onUserMedia={(stream) => {
+          console.log(stream.getVideoTracks()[0].getSettings())
+          send("WEBCAM_READY");
+        }}
       />
       {/* <canvas
         ref={overlayRef}
@@ -303,10 +308,18 @@ const SetCamera: FunctionalComponent = () => {
           ></canvas>
         </div>
       </div>
-      <div style={{ position: "absolute", backgroundColor: "white", padding: "1em" }}>
+      <div
+        style={{
+          position: "absolute",
+          backgroundColor: "white",
+          padding: "1em",
+        }}
+      >
         <p>State: {JSON.stringify(state.value, null, 2)}</p>
-        <p>Dimensions: {JSON.stringify({width, height}, null, 2)}</p>
-        <button onClick={() => send("TOGGLE")}>{state.hasTag("paused") ? "Resume" : "Pause"}</button>
+        <p>Dimensions: {JSON.stringify({ width, height }, null, 2)}</p>
+        <button onClick={() => send("TOGGLE")}>
+          {state.hasTag("paused") ? "Resume" : "Pause"}
+        </button>
       </div>
     </div>
   );

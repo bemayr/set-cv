@@ -1,7 +1,9 @@
 import { useDidMount } from "rooks";
 import { useState } from "preact/hooks";
 
-export default function useOrientationChange() {
+export type Orientation = "landscape" | "portrait";
+
+export default function useOrientationChange(): Orientation {
   const hasScreenOrientation = "orientation" in screen;
   const getScreenOrientation = () =>
     screen.orientation.type.startsWith("portrait") ? "portrait" : "landscape";
@@ -12,7 +14,7 @@ export default function useOrientationChange() {
   if (!(hasScreenOrientation || hasWindowOrientation))
     throw new Error("sorry you are fucked");
 
-  const [orientation, setOrientation] = useState<"portrait" | "landscape">(
+  const [orientation, setOrientation] = useState<Orientation>(
     hasScreenOrientation ? getScreenOrientation() : getWindowOrientation()
   );
 

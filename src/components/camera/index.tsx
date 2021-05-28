@@ -434,7 +434,7 @@ const SetCamera: FunctionalComponent = () => {
       )
   );
 
-  const FPS = 10;
+  const FPS = 3;
   // useRaf(() => send("SCAN"), true);
   useInterval(() => send("DETECT"), 1000 / FPS, true);
 
@@ -516,9 +516,14 @@ const SetCamera: FunctionalComponent = () => {
       >
         {/* <p>State: {JSON.stringify(state.value, null, 2)}</p> */}
         {/* <p>Context: {JSON.stringify(state.context, null, 2)}</p> */}
-        <p>Stream Dimensions: {JSON.stringify(streamDimensions, null, 2)}</p>
-        <p>Video Dimensions: {JSON.stringify(videoDimensions, null, 2)}</p>
-        <p>Orientation: {orientation}</p>
+        <div>Stream Dimensions: {JSON.stringify(streamDimensions, null, 2)}</div>
+        <div>Video Dimensions: {JSON.stringify(videoDimensions, null, 2)}</div>
+        <div>Orientation: {orientation}</div>
+        {/* {cameras.map((camera) => (
+          <div key={camera.deviceId} value={camera.deviceId}>
+            {camera.label}
+          </div>
+        ))} */}
         {/* <button onClick={() => send("TOGGLE")}>
           {state.hasTag("paused") ? "Resume" : "Pause"}
         </button> */}

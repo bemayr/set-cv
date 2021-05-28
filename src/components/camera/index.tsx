@@ -6,7 +6,9 @@ import { useSizes as useWindowDimensions } from "react-use-sizes";
 import Webcam from "react-webcam";
 import { useDidMount, useInterval } from "rooks";
 import { assign, createMachine } from "xstate";
+import { raise } from "xstate/lib/actions";
 import { createModel } from "xstate/lib/model";
+import { mapContext } from "xstate/lib/utils";
 import useOrientationChange, {
   Orientation,
 } from "../../hooks/use-orientation-change";
@@ -34,6 +36,7 @@ const model = createModel(
       DETECT: () => ({}),
       PAUSE_DETECTION: () => ({}),
       RESUME_DETECTION: () => ({}),
+      RESTART_DETECTION: () => ({}),
       "done.invoke.waitingForCameraStream": (data: MediaStream) => ({ data }),
     },
   }
@@ -57,11 +60,13 @@ const machine = createMachine<typeof model>(
         ],
       },
       ORIENTATION_CHANGED: {
+        target: "detecting",
         actions: [
           model.assign({
             orientation: (_, event) => event.orientation,
           }),
           "assignVideoDimension",
+          raise("RESTART_DETECTION"),
         ],
       },
     },
@@ -111,7 +116,11 @@ const machine = createMachine<typeof model>(
                 on: { CAMERA_READY: "ready" },
               },
               ready: {
-                entry: ["assignStreamDimension", "assignVideoDimension"],
+                entry: [
+                  "assignStreamDimension",
+                  "assignVideoDimension",
+                  "setVideoDimension",
+                ],
                 type: "final",
               },
             },
@@ -120,10 +129,11 @@ const machine = createMachine<typeof model>(
         onDone: { target: "detecting" },
       },
       detecting: {
-        entry: ["detection.initialize"],
+        entry: ["detection.initialize", "startVideoCapture"],
         exit: ["detection.finalize"],
         on: {
           PAUSE_DETECTION: "paused",
+          RESTART_DETECTION: { target: undefined, actions: () => console.log("RESTART_DETECTION"), internal: false },
         },
         initial: "idle",
         states: {
@@ -158,23 +168,28 @@ const machine = createMachine<typeof model>(
         const { width, height } = cameraStream
           .getVideoTracks()[0]
           .getSettings();
-        if (orientation === "landscape")
-          return {
-            streamDimension: {
-              width: width!,
-              height: height!,
-            },
-          };
-        if (orientation === "portrait")
-          return {
-            streamDimension: {
-              width: height!,
-              height: width!,
-            },
-          };
-        return {};
+        // if (orientation === "landscape")
+        //   return {
+        //     streamDimension: {
+        //       width: width!,
+        //       height: height!,
+        //     },
+        //   };
+        // if (orientation === "portrait")
+        //   return {
+        //     streamDimension: {
+        //       width: height!,
+        //       height: width!,
+        //     },
+        //   };
+        // return {};
+        return {streamDimension: {
+          width: width!,
+          height: height!,
+        }}
       }),
       assignVideoDimension: assign(({ streamDimension, orientation }) => {
+        console.log(`assigning video dimension for ${orientation}`)
         const { width = 0, height = 0 } = streamDimension || {};
         const MAX = 600;
         const scale = Math.min(MAX / width!, MAX / height!);
@@ -202,21 +217,33 @@ const SetCamera: FunctionalComponent = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const thresholdRef = useRef(null);
   const overlayRef = useRef(null);
-  const initialOrientation = useOrientationChange((orientation) => send(model.events.ORIENTATION_CHANGED(orientation)));
+  const initialOrientation = useOrientationChange((orientation) =>
+    send(model.events.ORIENTATION_CHANGED(orientation))
+  );
+  console.log(initialOrientation)
   const detectCards = useCallback((context: typeof model.initialContext) => {
     // @ts-ignore
     const video = videoRef.current;
+    // console.log("after video");
     const src = context.src;
-    const cap = context.cap;
+    // console.log("after src");
+    const cap = new cv.VideoCapture(videoRef.current);
+    // console.log("after cap");
     const dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+    // console.log("after dst");
 
     const cnts = new cv.MatVector();
     const hierarchy: Mat = new cv.Mat();
 
+    console.log("before cap.read");
+    console.log({"video.size": {height: video.height, width: video.width}})
+    // console.log(src);
     cap.read(src);
+    console.log("after cap.read");
 
     // start processing.
     cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
+    // console.log("after cv.cvtColor");
 
     // --- FAR FROM IDEAL ---
     // cv.GaussianBlur(dst, dst, new cv.Size(1, 1), 1000, 0, cv.BORDER_DEFAULT)
@@ -341,51 +368,48 @@ const SetCamera: FunctionalComponent = () => {
         videoRef.current.readyState === HTMLMediaElement.HAVE_ENOUGH_DATA,
     },
     actions: {
+      setVideoDimension: ({ videoDimension: { width, height } }) => {
+        videoRef.current.width = width;
+        videoRef.current.height = height;
+        console.log("size set");
+      },
       startVideo: ({ cameraStream }) =>
         (videoRef.current.srcObject = cameraStream),
-      "detection.initialize": assign((context) => {
-        // @ts-ignore
-        // const video = webcamRef.current.base;
-        const video = videoRef.current;
-        const src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-        // const cap = new cv.VideoCapture(video);
-        // cap.read(src);
-        return { src };
+      "detection.initialize": assign({
+        src: ({ videoDimension: { width, height } }: any) =>
+          new cv.Mat(height, width, cv.CV_8UC4),
+        cap: () => new cv.VideoCapture(videoRef.current),
       }),
-      "detection.finalize": (context) => {
-        context.src?.delete();
+      // "detection.initialize": assign(({ videoDimension: { width, height } }) => {
+      //   const src = new cv.Mat(height, width, cv.CV_8UC4)
+      //   console.log("new src set")
+      //   const cap =  new cv.VideoCapture(videoRef.current)
+      //   return {src, cap}
+      // }),
+      startVideoCapture: ({ src }) => {
+        // const cap = new cv.VideoCapture(videoRef.current);
+        // cap.read(src);
+        console.log("start video capture");
+        console.log(src);
       },
+      "detection.finalize": assign({
+        src: ({ src }) => {
+          src.delete();
+          return src;
+        },
+      }),
     },
     services: {
-      startCamera: async ({ selectedCamera }) => {
-        const stream = await navigator.mediaDevices.getUserMedia({
+      startCamera: async ({ selectedCamera }) =>
+        await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 4096 },
             height: { ideal: 2160 },
-            deviceId: selectedCamera,
+            deviceId: { exact: selectedCamera },
           },
-        });
-        // const { width, height } = stream.getVideoTracks()[0].getSettings();
-        // const MAX = 600;
-        // const scale = Math.min(MAX / width!, MAX / height!);
-        // if (orientation === "landscape")
-        //   setVideoDimensions({
-        //     width: width!,
-        //     height: height!,
-        //     displayWidth: width! * scale,
-        //     displayHeight: height! * scale,
-        //   });
-        // if (orientation === "portrait")
-        //   setVideoDimensions({
-        //     width: height!,
-        //     height: width!,
-        //     displayWidth: height! * scale,
-        //     displayHeight: width! * scale,
-        //   });
-        // videoRef.current.srcObject = stream;
-        return stream;
-      },
+        }),
       detectCards: detectCards,
+      // detectCards: () => Promise.resolve(),
     },
   });
   const videoDimensions = useSelector(
@@ -396,21 +420,10 @@ const SetCamera: FunctionalComponent = () => {
     service,
     (state) => state.context.orientation
   );
-
-  // const [videoDimensions, setVideoDimensions] = useState({
-  //   width: 0,
-  //   height: 0,
-  //   displayWidth: 0,
-  //   displayHeight: 0,
-  // });
-
-  const constraints: MediaStreamConstraints = {
-    video: {
-      width: { ideal: 4096 },
-      height: { ideal: 2160 },
-      facingMode: { exact: "environment" },
-    },
-  };
+  const selectedCamera = useSelector(
+    service,
+    (state) => state.context.selectedCamera
+  );
 
   useDidMount(() => {
     cv.onRuntimeInitialized = () => send("OPENCV_INITIALIZED");
@@ -425,47 +438,7 @@ const SetCamera: FunctionalComponent = () => {
       })
   );
 
-  // useDidMount(() => {
-  //   if (navigator.mediaDevices.getUserMedia) {
-  //     navigator.mediaDevices
-  //       .getUserMedia(constraints)
-  //       .then(function (stream) {
-  //         const { width, height } = stream.getVideoTracks()[0].getSettings();
-  //         const MAX = 600;
-  //         const scale = Math.min(MAX / width!, MAX / height!);
-  //         if (orientation === "landscape")
-  //           setVideoDimensions({
-  //             width: width!,
-  //             height: height!,
-  //             displayWidth: width! * scale,
-  //             displayHeight: height! * scale,
-  //           });
-  //         if (orientation === "portrait")
-  //           setVideoDimensions({
-  //             width: height!,
-  //             height: width!,
-  //             displayWidth: height! * scale,
-  //             displayHeight: width! * scale,
-  //           });
-  //         videoRef.current.srcObject = stream;
-  //         console.log(videoRef.current.readyState);
-  //       })
-  //       .catch(function (error) {
-  //         console.error(error);
-  //       });
-  //   }
-  // });
-
-  const [selectedCamera, selectCamera] =
-    useState<MediaDeviceInfo | undefined>(undefined);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
-
-  const handleDevices = useCallback(
-    (mediaDevices: MediaDeviceInfo[]) =>
-      setCameras(mediaDevices.filter(({ kind }) => kind === "videoinput")),
-    [setCameras]
-  );
-
   useDidMount(() =>
     navigator.mediaDevices
       .enumerateDevices()
@@ -474,9 +447,9 @@ const SetCamera: FunctionalComponent = () => {
       )
   );
 
-  const FPS = 5;
+  const FPS = .5;
   // useRaf(() => send("SCAN"), true);
-  // useInterval(() => send("DETECT"), 1000 / FPS, true);
+  useInterval(() => send("DETECT"), 1000 / FPS, true);
 
   // var orientation = (screen.orientation || {}).type || screen.mozOrientation || screen.msOrientation;
   // const orientation = screen.orientation
@@ -494,8 +467,8 @@ const SetCamera: FunctionalComponent = () => {
           background: "black",
         }}
         ref={videoRef}
-        width={videoDimensions.width}
-        height={videoDimensions.height}
+        // width={videoDimensions.width}
+        // height={videoDimensions.height}
         onLoadedMetadata={() => send("CAMERA_READY")}
         // height={600}
       ></video>
@@ -562,7 +535,7 @@ const SetCamera: FunctionalComponent = () => {
         </button> */}
         <div>
           <select
-            value={selectedCamera?.deviceId}
+            value={selectedCamera}
             onChange={(event) => {
               /* @ts-ignore */
               send(model.events.CAMERA_SELECTED(event.target.value));

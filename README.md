@@ -9,7 +9,6 @@ npm install
 npm run dev
 ```
 
-
 ## Learnings
 
 - [Media Capture Constraints](https://developer.mozilla.org/en-US/docs/Web/API/Media_Streams_API/Constraints)

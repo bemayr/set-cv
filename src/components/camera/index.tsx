@@ -60,12 +60,14 @@ const machine = createMachine<typeof model>(
         ],
       },
       ORIENTATION_CHANGED: {
-        target: "detecting",
+        // target: "detecting",
         actions: [
           model.assign({
             orientation: (_, event) => event.orientation,
           }),
+          "assignStreamDimension",
           "assignVideoDimension",
+          // "setVideoDimension",
           raise("RESTART_DETECTION"),
         ],
       },
@@ -129,13 +131,18 @@ const machine = createMachine<typeof model>(
         onDone: { target: "detecting" },
       },
       detecting: {
-        entry: ["detection.initialize", "setVideoDimension", "startVideoCapture"],
+        entry: [
+          "detection.initialize",
+          "setVideoDimension",
+          "startVideoCapture",
+          () => console.log("detecting.entry"),
+        ],
         exit: ["detection.finalize"],
         on: {
           PAUSE_DETECTION: "paused",
           RESTART_DETECTION: {
-            target: undefined,
-            // actions: () => console.log("RESTART_DETECTION"),
+            target: ".idle",
+            actions: () => console.log("RESTART_DETECTION"),
             internal: false,
           },
         },
@@ -172,6 +179,9 @@ const machine = createMachine<typeof model>(
         const { width, height } = cameraStream
           .getVideoTracks()[0]
           .getSettings();
+        console.log(
+          `stream dimensions assigned with width:${width!}, height:${height!}`
+        );
         return {
           streamDimension: {
             width: width!,
@@ -183,21 +193,45 @@ const machine = createMachine<typeof model>(
         const { width = 0, height = 0 } = streamDimension || {};
         const MAX = 600;
         const scale = Math.min(MAX / width!, MAX / height!);
-        if (orientation === "landscape")
+        if (orientation === "landscape") {
+          console.log(
+            `video dimensions assigned with width:${width! * scale}, height:${
+              height! * scale
+            }`
+          );
           return {
             videoDimension: {
               width: width! * scale,
               height: height! * scale,
             },
           };
+        }
         if (orientation === "portrait")
+          console.log(
+            `video dimensions assigned with width:${height! * scale}, height:${
+              width! * scale
+            }`
+          );
+        {
           return {
             videoDimension: {
               width: height! * scale,
               height: width! * scale,
             },
           };
+        }
         return {};
+        // console.log(
+        //   `video dimensions assigned with width:${width! * scale}, height:${
+        //     height! * scale
+        //   }`
+        // );
+        // return {
+        //   videoDimension: {
+        //     width: width! * scale,
+        //     height: height! * scale,
+        //   },
+        // };
       }),
     },
   }
@@ -358,9 +392,10 @@ const SetCamera: FunctionalComponent = () => {
     },
     actions: {
       setVideoDimension: ({ videoDimension: { width, height } }) => {
+        // console.log("setVideoDimension")
         videoRef.current.width = width;
         videoRef.current.height = height;
-        // console.log(`video dimensions set to width:${width}, height:${height}`)
+        console.log(`video dimensions set to width:${width}, height:${height}`);
       },
       startVideo: ({ cameraStream }) =>
         (videoRef.current.srcObject = cameraStream),
@@ -369,12 +404,14 @@ const SetCamera: FunctionalComponent = () => {
       //     new cv.Mat(height, width, cv.CV_8UC4),
       //   cap: () => new cv.VideoCapture(videoRef.current),
       // }),
-      "detection.initialize": assign(({ videoDimension: { width, height } }) => {
-        const src = new cv.Mat(height, width, cv.CV_8UC4)
-        const cap =  new cv.VideoCapture(videoRef.current)
-        // console.log(`detection intialized width:${width}, height:${height}`)
-        return {src, cap}
-      }),
+      "detection.initialize": assign(
+        ({ videoDimension: { width, height } }) => {
+          const src = new cv.Mat(height, width, cv.CV_8UC4);
+          const cap = new cv.VideoCapture(videoRef.current);
+          // console.log(`detection intialized width:${width}, height:${height}`)
+          return { src, cap };
+        }
+      ),
       startVideoCapture: ({ src }) => {
         // const cap = new cv.VideoCapture(videoRef.current);
         // cap.read(src);
@@ -401,6 +438,10 @@ const SetCamera: FunctionalComponent = () => {
       // detectCards: () => Promise.resolve(),
     },
   });
+  const streamDimensions = useSelector(
+    service,
+    (state) => state.context.streamDimension
+  );
   const videoDimensions = useSelector(
     service,
     (state) => state.context.videoDimension
@@ -513,10 +554,12 @@ const SetCamera: FunctionalComponent = () => {
           position: "absolute",
           backgroundColor: "white",
           padding: "1em",
+          fontSize: "8px",
         }}
       >
         {/* <p>State: {JSON.stringify(state.value, null, 2)}</p> */}
-        <p>Context: {JSON.stringify(state.context, null, 2)}</p>
+        {/* <p>Context: {JSON.stringify(state.context, null, 2)}</p> */}
+        <p>Stream Dimensions: {JSON.stringify(streamDimensions, null, 2)}</p>
         <p>Video Dimensions: {JSON.stringify(videoDimensions, null, 2)}</p>
         <p>Orientation: {orientation}</p>
         {/* <button onClick={() => send("TOGGLE")}>

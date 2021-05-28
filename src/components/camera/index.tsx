@@ -170,9 +170,6 @@ const machine = createMachine<typeof model>(
         const { width, height } = cameraStream
           .getVideoTracks()[0]
           .getSettings();
-        console.log(
-          `stream dimensions assigned with width:${width!}, height:${height!}`
-        );
         return {
           streamDimension: {
             width: width!,
@@ -184,11 +181,6 @@ const machine = createMachine<typeof model>(
         const { width = 0, height = 0 } = streamDimension || {};
         const MAX = 600;
         const scale = Math.min(MAX / width!, MAX / height!);
-        console.log(
-          `video dimensions assigned with width:${width! * scale}, height:${
-            height! * scale
-          }`
-        );
         return {
           videoDimension: {
             width: width! * scale,
@@ -355,10 +347,8 @@ const SetCamera: FunctionalComponent = () => {
     },
     actions: {
       setVideoDimension: ({ videoDimension: { width, height } }) => {
-        // console.log("setVideoDimension")
         videoRef.current.width = width;
         videoRef.current.height = height;
-        console.log(`video dimensions set to width:${width}, height:${height}`);
       },
       startVideo: ({ cameraStream }) =>
         (videoRef.current.srcObject = cameraStream),

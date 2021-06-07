@@ -228,16 +228,16 @@ const SetCamera: FunctionalComponent = () => {
     // cv.threshold(dst, dst, 120, 255, cv.THRESH_BINARY)
 
     // --- NOT IDEAL ---
-    cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 1000, 0, cv.BORDER_DEFAULT);
-    cv.adaptiveThreshold(
-      dst,
-      dst,
-      255,
-      cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-      cv.THRESH_BINARY,
-      11,
-      2
-    );
+    // cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 1000, 0, cv.BORDER_DEFAULT);
+    // cv.adaptiveThreshold(
+    //   dst,
+    //   dst,
+    //   255,
+    //   cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+    //   cv.THRESH_BINARY,
+    //   11,
+    //   2
+    // );
 
     // // --- C++ Set Solution, not ideal as well ---
     // cv.normalize(dst, dst, 0, 255, cv.NORM_MINMAX);
@@ -252,15 +252,15 @@ const SetCamera: FunctionalComponent = () => {
     // );
     // cv.imshow(thresholdRef.current!, dst);
 
-    // cv.GaussianBlur(
-    //   dst,
-    //   dst,
-    //   new cv.Size(5, 5),
-    //   0,
-    //   0,
-    //   cv.BORDER_DEFAULT
-    // );
-    // cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+    cv.GaussianBlur(
+      dst,
+      dst,
+      new cv.Size(5, 5),
+      0,
+      0,
+      cv.BORDER_DEFAULT
+    );
+    cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
     cv.imshow(thresholdRef.current!, dst);
 
     const contours = [];
@@ -278,7 +278,7 @@ const SetCamera: FunctionalComponent = () => {
 
     const result = [...contours]
       .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
-      .slice(0, 18);
+      .slice(0, 1);
 
     // const overlay = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
     const overlay = new cv.Mat(
@@ -299,30 +299,50 @@ const SetCamera: FunctionalComponent = () => {
       const test = new cv.MatVector();
       test.push_back(approx);
 
-      // console.log({height: approx.size().height, width: approx.size().width})
+      // const minmaxmat = new cv.Mat()
+      // approx.convertTo(minmaxmat, cv.CV_8U);
+      // console.log("to here")
+      // console.log(approx.channels())
+      // console.log(minmaxmat.channels())
+      // console.log(cv.minMaxLoc(minmaxmat))
 
-      if (approx.size().height === 4) {
-        if (cv.contourArea(c) > 7000) {
-          cv.drawContours(
-            overlay,
-            // @ts-ignore
-            test,
-            0,
-            new cv.Scalar(255, 0, 0, 255),
-            5,
-            cv.LINE_8
-          );
-        } else {
-          cv.drawContours(
-            overlay,
-            // @ts-ignore
-            test,
-            0,
-            new cv.Scalar(0, 255, 0, 255),
-            5,
-            cv.LINE_8
-          );
-        }
+      if(approx.size().height === 4) {
+        const points = []
+        for (let i = 0; i < 8; i = i + 2) points.push(new cv.Point(approx.data32S[i], approx.data32S[i + 1]));
+
+        console.log(points)
+      }
+
+      // console.log(approx.data32S)
+      // cv.circle(overlay, new cv.Point(approx.data32S[0], approx.data32S[1]), 10, new cv.Scalar(255, 255, 0, 255), 5);
+
+      console.log({"approx.points.#": approx.size().height, contourArea: cv.contourArea(c)})
+      cv.drawContours(
+        overlay,
+        // @ts-ignore
+        test,
+        0,
+        new cv.Scalar(255, 0, 0, 255),
+        5,
+        cv.LINE_8
+      );
+
+      const boundingRect = cv.boundingRect(c);
+      let point1 = new cv.Point(boundingRect.x, boundingRect.y);
+      let point2 = new cv.Point(boundingRect.x + boundingRect.width, boundingRect.y + boundingRect.height);
+      console.log({width: boundingRect.width, height: boundingRect.height})
+      cv.rectangle(overlay, point1, point2, new cv.Scalar(0, 255, 0, 255), 2, cv.LINE_AA, 0);
+
+      const rotatedRect = cv.minAreaRect(c);
+      const vertices = cv.RotatedRect.points(rotatedRect);
+      let angle = rotatedRect.angle;
+      if (rotatedRect.size.width < rotatedRect.size.height) {
+        angle = angle - 90;
+      }
+      console.log({width: rotatedRect.size.width, height: rotatedRect.size.height})
+      console.log({angle: angle})
+      for (let i = 0; i < 4; i++) {
+          cv.line(overlay, vertices[i], vertices[(i + 1) % 4], new cv.Scalar(0, 0, 255, 255), 2, cv.LINE_AA, 0);
       }
     });
 

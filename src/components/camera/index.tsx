@@ -298,24 +298,7 @@ const SetCamera: FunctionalComponent = () => {
 
       const test = new cv.MatVector();
       test.push_back(approx);
-
-      // const minmaxmat = new cv.Mat()
-      // approx.convertTo(minmaxmat, cv.CV_8U);
-      // console.log("to here")
-      // console.log(approx.channels())
-      // console.log(minmaxmat.channels())
-      // console.log(cv.minMaxLoc(minmaxmat))
-
-      if(approx.size().height === 4) {
-        const points = []
-        for (let i = 0; i < 8; i = i + 2) points.push(new cv.Point(approx.data32S[i], approx.data32S[i + 1]));
-
-        console.log(points)
-      }
-
-      // console.log(approx.data32S)
-      // cv.circle(overlay, new cv.Point(approx.data32S[0], approx.data32S[1]), 10, new cv.Scalar(255, 255, 0, 255), 5);
-
+      
       console.log({"approx.points.#": approx.size().height, contourArea: cv.contourArea(c)})
       cv.drawContours(
         overlay,
@@ -327,11 +310,38 @@ const SetCamera: FunctionalComponent = () => {
         cv.LINE_8
       );
 
-      const boundingRect = cv.boundingRect(c);
-      let point1 = new cv.Point(boundingRect.x, boundingRect.y);
-      let point2 = new cv.Point(boundingRect.x + boundingRect.width, boundingRect.y + boundingRect.height);
-      console.log({width: boundingRect.width, height: boundingRect.height})
-      cv.rectangle(overlay, point1, point2, new cv.Scalar(0, 255, 0, 255), 2, cv.LINE_AA, 0);
+      if(approx.size().height === 4) {
+        const points = []
+        for (let i = 0; i < 8; i = i + 2) points.push(new cv.Point(approx.data32S[i], approx.data32S[i + 1]));
+
+        points.sort((p1, p2) => (p1.y < p2.y) ? -1 : (p1.y > p2.y) ? 1 : 0).slice(0, 5);
+
+        //Determine left/right based on x position of top and bottom 2
+        let tl = points[0].x < points[1].x ? points[0] : points[1];
+        let tr = points[0].x > points[1].x ? points[0] : points[1];
+        let bl = points[2].x < points[3].x ? points[2] : points[3];
+        let br = points[2].x > points[3].x ? points[2] : points[3];
+
+        console.log({tl, tr, bl, br})
+        cv.circle(overlay, tl, 10, new cv.Scalar(255, 255, 0, 255), 5);
+        cv.circle(overlay, tr, 10, new cv.Scalar(0, 255, 255, 255), 5);
+        cv.circle(overlay, br, 10, new cv.Scalar(255, 0, 255, 255), 5);
+        cv.circle(overlay, bl, 10, new cv.Scalar(255, 255, 255, 255), 5);
+
+        let theta = Math.atan2(bl.y - tl.y, bl.x - tl.x)
+        theta *= 180 / Math.PI; // rads to degs, range (-180, 180]
+        console.log({theta})
+
+        // const tlbl = Math.hypot(tl.x - bl.x, tl.y - bl.y)
+        // const tltr = Math.hypot(tl.x - tr.x, tl.y - tr.y)
+        // console.log({tlbl, tltr})
+        
+        const distance12 = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y)
+        const distance13 = Math.hypot(points[0].x - points[2].x, points[0].y - points[2].y)
+        console.log({shift: distance12 > distance13})
+        
+        // console.log(points)
+      }
 
       const rotatedRect = cv.minAreaRect(c);
       const vertices = cv.RotatedRect.points(rotatedRect);
@@ -444,7 +454,7 @@ const SetCamera: FunctionalComponent = () => {
       )
   );
 
-  const FPS = 3;
+  const FPS = 1;
   // useRaf(() => send("SCAN"), true);
   useInterval(() => send("DETECT"), 1000 / FPS, true);
 

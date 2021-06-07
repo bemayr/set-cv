@@ -241,7 +241,9 @@ const SetCamera: FunctionalComponent = () => {
     function extractCard(src: Mat, approximation: Mat) {
       const points = [];
       for (let i = 0; i < 8; i = i + 2)
-        points.push(new cv.Point(approximation.data32S[i], approximation.data32S[i + 1]));
+        points.push(
+          new cv.Point(approximation.data32S[i], approximation.data32S[i + 1])
+        );
 
       points
         .sort((p1, p2) => (p1.y < p2.y ? -1 : p1.y > p2.y ? 1 : 0))
@@ -305,88 +307,80 @@ const SetCamera: FunctionalComponent = () => {
       .filter(mightBeCard)
       .slice(0, 18);
 
-    console.log(cardContours.length)
+    console.log(cardContours.length);
 
     cardContours.forEach(({ contour, approximation }) => {
       drawMat(contour, overlay, new cv.Scalar(255, 0, 0, 255));
       drawMat(approximation, overlay, new cv.Scalar(0, 255, 0, 255));
-      
-      const card = extractCard(src, approximation)
+
+      const card = extractCard(src, approximation);
       cv.imshow(cardRef.current!, card);
 
-      // const carddst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
-      // cv.cvtColor(card, carddst, cv.COLOR_RGBA2GRAY);
-      // cv.GaussianBlur(
-      //   carddst,
-      //   carddst,
-      //   new cv.Size(3, 3),
-      //   0,
-      //   0,
-      //   cv.BORDER_DEFAULT
-      // );
-      // cv.threshold(
-      //   carddst,
-      //   carddst,
-      //   120,
-      //   255,
-      //   cv.THRESH_BINARY_INV + cv.THRESH_OTSU
-      // );
-      // // cv.threshold(carddst, carddst, 200, 255, cv.THRESH_BINARY_INV)
-      // cv.imshow(cardRef.current!, carddst);
+      const carddst = new cv.Mat(card.rows, card.cols, cv.CV_8UC1);
+      const cardoverlay = new cv.Mat(
+        carddst.rows,
+        carddst.cols,
+        cv.CV_8UC4,
+        new cv.Scalar(0, 0, 0, 0)
+      );
 
-      // const cnts2 = new cv.MatVector();
-      // const hierarchy2: Mat = new cv.Mat();
+      cv.cvtColor(card, carddst, cv.COLOR_RGBA2GRAY);
+      cv.GaussianBlur(
+        carddst,
+        carddst,
+        new cv.Size(3, 3),
+        0,
+        0,
+        cv.BORDER_DEFAULT
+      );
+      cv.threshold(
+        carddst,
+        carddst,
+        120,
+        255,
+        cv.THRESH_BINARY_INV + cv.THRESH_OTSU
+      );
+      cv.imshow(cardRef.current!, carddst);
 
-      // const cardoverlay = new cv.Mat(
-      //   carddst.rows,
-      //   carddst.cols,
-      //   cv.CV_8UC4,
-      //   new cv.Scalar(0, 0, 0, 0)
-      // );
+      const [{ contours }, cleanup] = extractContours(
+        carddst,
+        cv.RETR_EXTERNAL,
+        cv.CHAIN_APPROX_SIMPLE
+      );
 
-      // cv.findContours(
-      //   carddst,
-      //   // @ts-ignore
-      //   cnts2,
-      //   hierarchy2,
-      //   cv.RETR_EXTERNAL,
-      //   cv.CHAIN_APPROX_SIMPLE
-      // );
+      const shapeContours = contours
+        .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
+        .filter((a) => cv.contourArea(a) > 2000);
 
-      // let contours2 = [];
-      // for (let i = 0; i < cnts2.size(); ++i) contours2.push(cnts2.get(i));
+      const temp = new cv.MatVector();
+      shapeContours.forEach((a) => temp.push_back(a));
 
-      // const result2 = [...contours2]
-      //   .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
-      //   .filter((a) => cv.contourArea(a) > 2000);
+      cv.drawContours(
+        cardoverlay,
+        // @ts-ignore
+        temp,
+        -1,
+        new cv.Scalar(255, 255, 0, 255),
+        5,
+        cv.LINE_8
+      );
 
-      // const temp = new cv.MatVector();
-      // result2.forEach((a) => temp.push_back(a));
+      console.log({
+        "contours.#": shapeContours.length,
+        isConvex: cv.isContourConvex(shapeContours[0]),
+      });
 
-      // cv.drawContours(
-      //   cardoverlay,
-      //   // @ts-ignore
-      //   temp,
-      //   -1,
-      //   new cv.Scalar(255, 255, 0, 255),
-      //   5,
-      //   cv.LINE_8
-      // );
+      cv.imshow(cardMaskRef.current!, cardoverlay);
 
-      // console.log({
-      //   "contours.#": result2.length,
-      //   isConvex: cv.isContourConvex(result2[0]),
-      // });
+      cleanup()
 
-      // cv.imshow(cardMaskRef.current!, cardoverlay);
-
-      contour.delete()
-      approximation.delete()
+      contour.delete();
+      approximation.delete();
     });
 
     // cv.imshow(canvasRef.current!, dst);
     cv.imshow(overlayRef.current!, overlay);
-    
+
     overlay.delete();
     dst.delete();
     cleanupCardContours();

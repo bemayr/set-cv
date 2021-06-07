@@ -196,6 +196,7 @@ const SetCamera: FunctionalComponent = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const thresholdRef = useRef(null);
   const overlayRef = useRef(null);
+  const cardRef = useRef(null);
   const initialOrientation = useOrientationChange((orientation) =>
     send(model.events.ORIENTATION_CHANGED(orientation))
   );
@@ -323,10 +324,10 @@ const SetCamera: FunctionalComponent = () => {
         let br = points[2].x > points[3].x ? points[2] : points[3];
 
         console.log({tl, tr, bl, br})
-        cv.circle(overlay, tl, 10, new cv.Scalar(255, 255, 0, 255), 5);
-        cv.circle(overlay, tr, 10, new cv.Scalar(0, 255, 255, 255), 5);
-        cv.circle(overlay, br, 10, new cv.Scalar(255, 0, 255, 255), 5);
-        cv.circle(overlay, bl, 10, new cv.Scalar(255, 255, 255, 255), 5);
+        // cv.circle(overlay, tl, 10, new cv.Scalar(255, 255, 0, 255), 5);
+        // cv.circle(overlay, tr, 10, new cv.Scalar(0, 255, 255, 255), 5);
+        // cv.circle(overlay, br, 10, new cv.Scalar(255, 0, 255, 255), 5);
+        // cv.circle(overlay, bl, 10, new cv.Scalar(255, 255, 255, 255), 5);
 
         let theta = Math.atan2(bl.y - tl.y, bl.x - tl.x)
         theta *= 180 / Math.PI; // rads to degs, range (-180, 180]
@@ -335,10 +336,28 @@ const SetCamera: FunctionalComponent = () => {
         // const tlbl = Math.hypot(tl.x - bl.x, tl.y - bl.y)
         // const tltr = Math.hypot(tl.x - tr.x, tl.y - tr.y)
         // console.log({tlbl, tltr})
-        
+
         const distance12 = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y)
         const distance13 = Math.hypot(points[0].x - points[2].x, points[0].y - points[2].y)
-        console.log({shift: distance12 > distance13})
+        console.log({"tl is [0]": tl === points[0], shift: distance12 > distance13})
+
+        const corners = distance12 > distance13
+        ? [tr, br, bl, tl] : [tl, tr, br, bl];
+        cv.circle(overlay, corners[0], 10, new cv.Scalar(255, 255, 0, 255), 5);
+        cv.circle(overlay, corners[1], 10, new cv.Scalar(0, 255, 255, 255), 5);
+        cv.circle(overlay, corners[2], 10, new cv.Scalar(255, 0, 255, 255), 5);
+        cv.circle(overlay, corners[3], 10, new cv.Scalar(255, 255, 255, 255), 5);
+
+        const from = corners.reduce((result, current) => ([...result, current.x, current.y]), [] as number[])
+
+        let card = new cv.Mat();
+        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, from);
+        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, 200, 0, 200, 310, 0, 310]);
+        let M = cv.getPerspectiveTransform(srcTri, dstTri);
+        let dsize = new cv.Size(200, 310);
+        // You can try more different parameters
+        cv.warpPerspective(src, card, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+        cv.imshow(cardRef.current!, card);
         
         // console.log(points)
       }
@@ -518,6 +537,21 @@ const SetCamera: FunctionalComponent = () => {
           <p style={{ margin: "2px" }}>Mask</p>
           <canvas
             ref={overlayRef}
+            style={{
+              height: "20vh",
+              minHeight: "100px",
+              border: "1px white solid",
+            }}
+          ></canvas>
+        </div>
+        <div
+          style={{
+            margin: "10px",
+          }}
+        >
+          <p style={{ margin: "2px" }}>Mask</p>
+          <canvas
+            ref={cardRef}
             style={{
               height: "20vh",
               minHeight: "100px",

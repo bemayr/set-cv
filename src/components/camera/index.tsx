@@ -237,6 +237,63 @@ const SetCamera: FunctionalComponent = () => {
       return has4Corners && hasMinimumSize && isConvex;
     }
 
+    // TODO: optimize
+    function extractCard(src: Mat, approximation: Mat) {
+      const points = [];
+      for (let i = 0; i < 8; i = i + 2)
+        points.push(new cv.Point(approximation.data32S[i], approximation.data32S[i + 1]));
+
+      points
+        .sort((p1, p2) => (p1.y < p2.y ? -1 : p1.y > p2.y ? 1 : 0))
+        .slice(0, 5);
+
+      //Determine left/right based on x position of top and bottom 2
+      let tl = points[0].x < points[1].x ? points[0] : points[1];
+      let tr = points[0].x > points[1].x ? points[0] : points[1];
+      let bl = points[2].x < points[3].x ? points[2] : points[3];
+      let br = points[2].x > points[3].x ? points[2] : points[3];
+
+      const distance12 = Math.hypot(
+        points[0].x - points[1].x,
+        points[0].y - points[1].y
+      );
+      const distance13 = Math.hypot(
+        points[0].x - points[2].x,
+        points[0].y - points[2].y
+      );
+
+      const corners =
+        distance12 > distance13 ? [tr, br, bl, tl] : [tl, tr, br, bl];
+
+      const from = corners.reduce(
+        (result, current) => [...result, current.x, current.y],
+        [] as number[]
+      );
+
+      let card = new cv.Mat();
+      let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, from);
+      let dstTri = cv.matFromArray(
+        4,
+        1,
+        cv.CV_32FC2,
+        [0, 0, 200, 0, 200, 310, 0, 310]
+      );
+      let M = cv.getPerspectiveTransform(srcTri, dstTri);
+      let dsize = new cv.Size(200, 310);
+      // You can try more different parameters
+      cv.warpPerspective(
+        src,
+        card,
+        M,
+        dsize,
+        cv.INTER_LINEAR,
+        cv.BORDER_CONSTANT,
+        new cv.Scalar()
+      );
+
+      return card;
+    }
+
     const [{ contours }, cleanupCardContours] = extractContours(
       dst,
       cv.RETR_EXTERNAL,
@@ -254,86 +311,8 @@ const SetCamera: FunctionalComponent = () => {
       drawMat(contour, overlay, new cv.Scalar(255, 0, 0, 255));
       drawMat(approximation, overlay, new cv.Scalar(0, 255, 0, 255));
       
-      const points = [];
-      for (let i = 0; i < 8; i = i + 2)
-        points.push(new cv.Point(approximation.data32S[i], approximation.data32S[i + 1]));
-
-      points
-        .sort((p1, p2) => (p1.y < p2.y ? -1 : p1.y > p2.y ? 1 : 0))
-        .slice(0, 5);
-
-      //Determine left/right based on x position of top and bottom 2
-      let tl = points[0].x < points[1].x ? points[0] : points[1];
-      let tr = points[0].x > points[1].x ? points[0] : points[1];
-      let bl = points[2].x < points[3].x ? points[2] : points[3];
-      let br = points[2].x > points[3].x ? points[2] : points[3];
-
-      console.log({ tl, tr, bl, br });
-      // cv.circle(overlay, tl, 10, new cv.Scalar(255, 255, 0, 255), 5);
-      // cv.circle(overlay, tr, 10, new cv.Scalar(0, 255, 255, 255), 5);
-      // cv.circle(overlay, br, 10, new cv.Scalar(255, 0, 255, 255), 5);
-      // cv.circle(overlay, bl, 10, new cv.Scalar(255, 255, 255, 255), 5);
-
-      let theta = Math.atan2(bl.y - tl.y, bl.x - tl.x);
-      theta *= 180 / Math.PI; // rads to degs, range (-180, 180]
-      console.log({ theta });
-
-      // const tlbl = Math.hypot(tl.x - bl.x, tl.y - bl.y)
-      // const tltr = Math.hypot(tl.x - tr.x, tl.y - tr.y)
-      // console.log({tlbl, tltr})
-
-      const distance12 = Math.hypot(
-        points[0].x - points[1].x,
-        points[0].y - points[1].y
-      );
-      const distance13 = Math.hypot(
-        points[0].x - points[2].x,
-        points[0].y - points[2].y
-      );
-      console.log({
-        "tl is [0]": tl === points[0],
-        shift: distance12 > distance13,
-      });
-
-      const corners =
-        distance12 > distance13 ? [tr, br, bl, tl] : [tl, tr, br, bl];
-      cv.circle(overlay, corners[0], 10, new cv.Scalar(255, 255, 0, 255), 5);
-      cv.circle(overlay, corners[1], 10, new cv.Scalar(0, 255, 255, 255), 5);
-      cv.circle(overlay, corners[2], 10, new cv.Scalar(255, 0, 255, 255), 5);
-      cv.circle(
-        overlay,
-        corners[3],
-        10,
-        new cv.Scalar(255, 255, 255, 255),
-        5
-      );
-
-      // const from = corners.reduce(
-      //   (result, current) => [...result, current.x, current.y],
-      //   [] as number[]
-      // );
-
-      // let card = new cv.Mat();
-      // let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, from);
-      // let dstTri = cv.matFromArray(
-      //   4,
-      //   1,
-      //   cv.CV_32FC2,
-      //   [0, 0, 200, 0, 200, 310, 0, 310]
-      // );
-      // let M = cv.getPerspectiveTransform(srcTri, dstTri);
-      // let dsize = new cv.Size(200, 310);
-      // // You can try more different parameters
-      // cv.warpPerspective(
-      //   src,
-      //   card,
-      //   M,
-      //   dsize,
-      //   cv.INTER_LINEAR,
-      //   cv.BORDER_CONSTANT,
-      //   new cv.Scalar()
-      // );
-      // // cv.imshow(cardRef.current!, card);
+      const card = extractCard(src, approximation)
+      cv.imshow(cardRef.current!, card);
 
       // const carddst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
       // cv.cvtColor(card, carddst, cv.COLOR_RGBA2GRAY);

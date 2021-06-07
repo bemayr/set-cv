@@ -12,6 +12,7 @@ import { mapContext } from "xstate/lib/utils";
 import useOrientationChange, {
   Orientation,
 } from "../../hooks/use-orientation-change";
+import { drawMat, extractContours } from "../../opencv-helpers";
 
 // TODO: stop video tracks
 // cameraStream: undefined as undefined | MediaStream,
@@ -67,7 +68,7 @@ const machine = createMachine<typeof model>(
           "stopCameraStream",
           model.assign({
             orientation: (_, event) => event.orientation,
-          })
+          }),
         ],
       },
     },
@@ -130,9 +131,7 @@ const machine = createMachine<typeof model>(
         onDone: { target: "detecting" },
       },
       detecting: {
-        entry: [
-          "detection.initialize",
-        ],
+        entry: ["detection.initialize"],
         exit: ["detection.finalize"],
         on: {
           PAUSE_DETECTION: "paused",
@@ -204,85 +203,9 @@ const SetCamera: FunctionalComponent = () => {
   const detectCards = useCallback((context: typeof model.initialContext) => {
     // @ts-ignore
     const video = videoRef.current;
-    // console.log("after video");
     const src = context.src;
-    // console.log("after src");
     const cap = new cv.VideoCapture(videoRef.current);
-    // console.log("after cap");
     const dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
-    // console.log("after dst");
-
-    const cnts = new cv.MatVector();
-    const hierarchy: Mat = new cv.Mat();
-
-    // console.log("before cap.read");
-    // console.log({ "video.size": { height: video.height, width: video.width } });
-    // console.log(src);
-    cap.read(src);
-    // console.log("after cap.read");
-
-    // start processing.
-    cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-    // console.log("after cv.cvtColor");
-
-    // --- FAR FROM IDEAL ---
-    // cv.GaussianBlur(dst, dst, new cv.Size(1, 1), 1000, 0, cv.BORDER_DEFAULT)
-    // cv.threshold(dst, dst, 120, 255, cv.THRESH_BINARY)
-
-    // --- NOT IDEAL ---
-    // cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 1000, 0, cv.BORDER_DEFAULT);
-    // cv.adaptiveThreshold(
-    //   dst,
-    //   dst,
-    //   255,
-    //   cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-    //   cv.THRESH_BINARY,
-    //   11,
-    //   2
-    // );
-
-    // // --- C++ Set Solution, not ideal as well ---
-    // cv.normalize(dst, dst, 0, 255, cv.NORM_MINMAX);
-    // cv.adaptiveThreshold(
-    //   dst,
-    //   dst,
-    //   255,
-    //   cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-    //   cv.THRESH_BINARY,
-    //   181,
-    //   10
-    // );
-    // cv.imshow(thresholdRef.current!, dst);
-
-    cv.GaussianBlur(
-      dst,
-      dst,
-      new cv.Size(5, 5),
-      0,
-      0,
-      cv.BORDER_DEFAULT
-    );
-    cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-    cv.imshow(thresholdRef.current!, dst);
-
-    const contours = [];
-
-    cv.findContours(
-      dst,
-      // @ts-ignore
-      cnts,
-      hierarchy,
-      cv.RETR_TREE,
-      cv.CHAIN_APPROX_TC89_L1
-    );
-    // @ts-ignore
-    for (let i = 0; i < cnts.size(); ++i) contours.push(cnts.get(i));
-
-    const result = [...contours]
-      .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
-      .slice(0, 1);
-
-    // const overlay = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
     const overlay = new cv.Mat(
       src.rows,
       src.cols,
@@ -290,158 +213,204 @@ const SetCamera: FunctionalComponent = () => {
       new cv.Scalar(0, 0, 0, 0)
     );
 
-    result.forEach((c, i) => {
-      const temp = new cv.MatVector();
-      temp.push_back(c);
+    cap.read(src);
+    cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
 
-      const peri = cv.arcLength(c, true);
-      const approx = new cv.Mat();
-      cv.approxPolyDP(c, approx, 0.04 * peri, true);
+    cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+    cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+    cv.imshow(thresholdRef.current!, dst);
 
-      const test = new cv.MatVector();
-      test.push_back(approx);
+    function addApproximation(contour: Mat): {
+      contour: Mat;
+      approximation: Mat;
+    } {
+      const peri = cv.arcLength(contour, true);
+      const approximation = new cv.Mat();
+      cv.approxPolyDP(contour, approximation, 0.04 * peri, true);
+      return { contour, approximation };
+    }
+
+    function mightBeCard({ approximation }: { approximation: Mat }): boolean {
+      const has4Corners = approximation.size().height === 4;
+      const hasMinimumSize = cv.contourArea(approximation) > 500;
+      const isConvex = cv.isContourConvex(approximation);
+      return has4Corners && hasMinimumSize && isConvex;
+    }
+
+    const [{ contours }, cleanupCardContours] = extractContours(
+      dst,
+      cv.RETR_EXTERNAL,
+      cv.CHAIN_APPROX_SIMPLE
+    );
+    const cardContours = contours
+      .sort((first, second) => cv.contourArea(second) - cv.contourArea(first))
+      .map(addApproximation)
+      .filter(mightBeCard)
+      .slice(0, 18);
+
+    console.log(cardContours.length)
+
+    cardContours.forEach(({ contour, approximation }) => {
+      drawMat(contour, overlay, new cv.Scalar(255, 0, 0, 255));
+      drawMat(approximation, overlay, new cv.Scalar(0, 255, 0, 255));
       
-      console.log({"approx.points.#": approx.size().height, contourArea: cv.contourArea(c)})
-      cv.drawContours(
+      const points = [];
+      for (let i = 0; i < 8; i = i + 2)
+        points.push(new cv.Point(approximation.data32S[i], approximation.data32S[i + 1]));
+
+      points
+        .sort((p1, p2) => (p1.y < p2.y ? -1 : p1.y > p2.y ? 1 : 0))
+        .slice(0, 5);
+
+      //Determine left/right based on x position of top and bottom 2
+      let tl = points[0].x < points[1].x ? points[0] : points[1];
+      let tr = points[0].x > points[1].x ? points[0] : points[1];
+      let bl = points[2].x < points[3].x ? points[2] : points[3];
+      let br = points[2].x > points[3].x ? points[2] : points[3];
+
+      console.log({ tl, tr, bl, br });
+      // cv.circle(overlay, tl, 10, new cv.Scalar(255, 255, 0, 255), 5);
+      // cv.circle(overlay, tr, 10, new cv.Scalar(0, 255, 255, 255), 5);
+      // cv.circle(overlay, br, 10, new cv.Scalar(255, 0, 255, 255), 5);
+      // cv.circle(overlay, bl, 10, new cv.Scalar(255, 255, 255, 255), 5);
+
+      let theta = Math.atan2(bl.y - tl.y, bl.x - tl.x);
+      theta *= 180 / Math.PI; // rads to degs, range (-180, 180]
+      console.log({ theta });
+
+      // const tlbl = Math.hypot(tl.x - bl.x, tl.y - bl.y)
+      // const tltr = Math.hypot(tl.x - tr.x, tl.y - tr.y)
+      // console.log({tlbl, tltr})
+
+      const distance12 = Math.hypot(
+        points[0].x - points[1].x,
+        points[0].y - points[1].y
+      );
+      const distance13 = Math.hypot(
+        points[0].x - points[2].x,
+        points[0].y - points[2].y
+      );
+      console.log({
+        "tl is [0]": tl === points[0],
+        shift: distance12 > distance13,
+      });
+
+      const corners =
+        distance12 > distance13 ? [tr, br, bl, tl] : [tl, tr, br, bl];
+      cv.circle(overlay, corners[0], 10, new cv.Scalar(255, 255, 0, 255), 5);
+      cv.circle(overlay, corners[1], 10, new cv.Scalar(0, 255, 255, 255), 5);
+      cv.circle(overlay, corners[2], 10, new cv.Scalar(255, 0, 255, 255), 5);
+      cv.circle(
         overlay,
-        // @ts-ignore
-        test,
-        0,
-        new cv.Scalar(255, 0, 0, 255),
-        5,
-        cv.LINE_8
+        corners[3],
+        10,
+        new cv.Scalar(255, 255, 255, 255),
+        5
       );
 
-      if(approx.size().height === 4) {
-        const points = []
-        for (let i = 0; i < 8; i = i + 2) points.push(new cv.Point(approx.data32S[i], approx.data32S[i + 1]));
+      // const from = corners.reduce(
+      //   (result, current) => [...result, current.x, current.y],
+      //   [] as number[]
+      // );
 
-        points.sort((p1, p2) => (p1.y < p2.y) ? -1 : (p1.y > p2.y) ? 1 : 0).slice(0, 5);
+      // let card = new cv.Mat();
+      // let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, from);
+      // let dstTri = cv.matFromArray(
+      //   4,
+      //   1,
+      //   cv.CV_32FC2,
+      //   [0, 0, 200, 0, 200, 310, 0, 310]
+      // );
+      // let M = cv.getPerspectiveTransform(srcTri, dstTri);
+      // let dsize = new cv.Size(200, 310);
+      // // You can try more different parameters
+      // cv.warpPerspective(
+      //   src,
+      //   card,
+      //   M,
+      //   dsize,
+      //   cv.INTER_LINEAR,
+      //   cv.BORDER_CONSTANT,
+      //   new cv.Scalar()
+      // );
+      // // cv.imshow(cardRef.current!, card);
 
-        //Determine left/right based on x position of top and bottom 2
-        let tl = points[0].x < points[1].x ? points[0] : points[1];
-        let tr = points[0].x > points[1].x ? points[0] : points[1];
-        let bl = points[2].x < points[3].x ? points[2] : points[3];
-        let br = points[2].x > points[3].x ? points[2] : points[3];
+      // const carddst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+      // cv.cvtColor(card, carddst, cv.COLOR_RGBA2GRAY);
+      // cv.GaussianBlur(
+      //   carddst,
+      //   carddst,
+      //   new cv.Size(3, 3),
+      //   0,
+      //   0,
+      //   cv.BORDER_DEFAULT
+      // );
+      // cv.threshold(
+      //   carddst,
+      //   carddst,
+      //   120,
+      //   255,
+      //   cv.THRESH_BINARY_INV + cv.THRESH_OTSU
+      // );
+      // // cv.threshold(carddst, carddst, 200, 255, cv.THRESH_BINARY_INV)
+      // cv.imshow(cardRef.current!, carddst);
 
-        console.log({tl, tr, bl, br})
-        // cv.circle(overlay, tl, 10, new cv.Scalar(255, 255, 0, 255), 5);
-        // cv.circle(overlay, tr, 10, new cv.Scalar(0, 255, 255, 255), 5);
-        // cv.circle(overlay, br, 10, new cv.Scalar(255, 0, 255, 255), 5);
-        // cv.circle(overlay, bl, 10, new cv.Scalar(255, 255, 255, 255), 5);
+      // const cnts2 = new cv.MatVector();
+      // const hierarchy2: Mat = new cv.Mat();
 
-        let theta = Math.atan2(bl.y - tl.y, bl.x - tl.x)
-        theta *= 180 / Math.PI; // rads to degs, range (-180, 180]
-        console.log({theta})
+      // const cardoverlay = new cv.Mat(
+      //   carddst.rows,
+      //   carddst.cols,
+      //   cv.CV_8UC4,
+      //   new cv.Scalar(0, 0, 0, 0)
+      // );
 
-        // const tlbl = Math.hypot(tl.x - bl.x, tl.y - bl.y)
-        // const tltr = Math.hypot(tl.x - tr.x, tl.y - tr.y)
-        // console.log({tlbl, tltr})
+      // cv.findContours(
+      //   carddst,
+      //   // @ts-ignore
+      //   cnts2,
+      //   hierarchy2,
+      //   cv.RETR_EXTERNAL,
+      //   cv.CHAIN_APPROX_SIMPLE
+      // );
 
-        const distance12 = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y)
-        const distance13 = Math.hypot(points[0].x - points[2].x, points[0].y - points[2].y)
-        console.log({"tl is [0]": tl === points[0], shift: distance12 > distance13})
+      // let contours2 = [];
+      // for (let i = 0; i < cnts2.size(); ++i) contours2.push(cnts2.get(i));
 
-        const corners = distance12 > distance13
-        ? [tr, br, bl, tl] : [tl, tr, br, bl];
-        cv.circle(overlay, corners[0], 10, new cv.Scalar(255, 255, 0, 255), 5);
-        cv.circle(overlay, corners[1], 10, new cv.Scalar(0, 255, 255, 255), 5);
-        cv.circle(overlay, corners[2], 10, new cv.Scalar(255, 0, 255, 255), 5);
-        cv.circle(overlay, corners[3], 10, new cv.Scalar(255, 255, 255, 255), 5);
+      // const result2 = [...contours2]
+      //   .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
+      //   .filter((a) => cv.contourArea(a) > 2000);
 
-        const from = corners.reduce((result, current) => ([...result, current.x, current.y]), [] as number[])
+      // const temp = new cv.MatVector();
+      // result2.forEach((a) => temp.push_back(a));
 
-        let card = new cv.Mat();
-        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, from);
-        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, 200, 0, 200, 310, 0, 310]);
-        let M = cv.getPerspectiveTransform(srcTri, dstTri);
-        let dsize = new cv.Size(200, 310);
-        // You can try more different parameters
-        cv.warpPerspective(src, card, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-        // cv.imshow(cardRef.current!, card);
+      // cv.drawContours(
+      //   cardoverlay,
+      //   // @ts-ignore
+      //   temp,
+      //   -1,
+      //   new cv.Scalar(255, 255, 0, 255),
+      //   5,
+      //   cv.LINE_8
+      // );
 
-        const carddst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
-        cv.cvtColor(card, carddst, cv.COLOR_RGBA2GRAY);
-        cv.GaussianBlur(
-          carddst,
-          carddst,
-          new cv.Size(3, 3),
-          0,
-          0,
-          cv.BORDER_DEFAULT
-        );
-        cv.threshold(carddst, carddst, 120, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
-        // cv.threshold(carddst, carddst, 200, 255, cv.THRESH_BINARY_INV)
-        cv.imshow(cardRef.current!, carddst);
+      // console.log({
+      //   "contours.#": result2.length,
+      //   isConvex: cv.isContourConvex(result2[0]),
+      // });
 
-        const cnts2 = new cv.MatVector();
-        const hierarchy2: Mat = new cv.Mat();
+      // cv.imshow(cardMaskRef.current!, cardoverlay);
 
-        const cardoverlay = new cv.Mat(
-          carddst.rows,
-          carddst.cols,
-          cv.CV_8UC4,
-          new cv.Scalar(0, 0, 0, 0)
-        );
-
-        cv.findContours(
-          carddst,
-          // @ts-ignore
-          cnts2,
-          hierarchy2,
-          cv.RETR_EXTERNAL,
-          cv.CHAIN_APPROX_SIMPLE
-        );
-
-        let contours2 = []
-        for (let i = 0; i < cnts2.size(); ++i) contours2.push(cnts2.get(i));
-
-        const result2 = [...contours2]
-          .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
-          .filter(a => cv.contourArea(a) > 2000);
-
-        const temp = new cv.MatVector();
-        result2.forEach(a => temp.push_back(a))
-
-        cv.drawContours(
-          cardoverlay,
-          // @ts-ignore
-          temp,
-          -1,
-          new cv.Scalar(255, 255, 0, 255),
-          5,
-          cv.LINE_8
-        );
-
-        console.log({
-          "contours.#": result2.length,
-          "isConvex": cv.isContourConvex(result2[0])
-        })
-
-        cv.imshow(cardMaskRef.current!, cardoverlay);
-        // console.log(points)
-      }
-
-      const rotatedRect = cv.minAreaRect(c);
-      const vertices = cv.RotatedRect.points(rotatedRect);
-      let angle = rotatedRect.angle;
-      if (rotatedRect.size.width < rotatedRect.size.height) {
-        angle = angle - 90;
-      }
-      console.log({width: rotatedRect.size.width, height: rotatedRect.size.height})
-      console.log({angle: angle})
-      for (let i = 0; i < 4; i++) {
-          cv.line(overlay, vertices[i], vertices[(i + 1) % 4], new cv.Scalar(0, 0, 255, 255), 2, cv.LINE_AA, 0);
-      }
+      contour.delete()
+      approximation.delete()
     });
 
     // cv.imshow(canvasRef.current!, dst);
     cv.imshow(overlayRef.current!, overlay);
-
+    
     overlay.delete();
     dst.delete();
-    cnts.delete();
-    hierarchy.delete();
+    cleanupCardContours();
 
     return Promise.resolve();
   }, []);
@@ -645,7 +614,9 @@ const SetCamera: FunctionalComponent = () => {
       >
         {/* <p>State: {JSON.stringify(state.value, null, 2)}</p> */}
         {/* <p>Context: {JSON.stringify(state.context, null, 2)}</p> */}
-        <div>Stream Dimensions: {JSON.stringify(streamDimensions, null, 2)}</div>
+        <div>
+          Stream Dimensions: {JSON.stringify(streamDimensions, null, 2)}
+        </div>
         <div>Video Dimensions: {JSON.stringify(videoDimensions, null, 2)}</div>
         <div>Orientation: {orientation}</div>
         {/* {cameras.map((camera) => (

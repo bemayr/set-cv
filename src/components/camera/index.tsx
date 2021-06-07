@@ -197,6 +197,7 @@ const SetCamera: FunctionalComponent = () => {
   const thresholdRef = useRef(null);
   const overlayRef = useRef(null);
   const cardRef = useRef(null);
+  const cardMaskRef = useRef(null);
   const initialOrientation = useOrientationChange((orientation) =>
     send(model.events.ORIENTATION_CHANGED(orientation))
   );
@@ -357,8 +358,67 @@ const SetCamera: FunctionalComponent = () => {
         let dsize = new cv.Size(200, 310);
         // You can try more different parameters
         cv.warpPerspective(src, card, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-        cv.imshow(cardRef.current!, card);
-        
+        // cv.imshow(cardRef.current!, card);
+
+        const carddst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+        cv.cvtColor(card, carddst, cv.COLOR_RGBA2GRAY);
+        cv.GaussianBlur(
+          carddst,
+          carddst,
+          new cv.Size(3, 3),
+          0,
+          0,
+          cv.BORDER_DEFAULT
+        );
+        cv.threshold(carddst, carddst, 120, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+        // cv.threshold(carddst, carddst, 200, 255, cv.THRESH_BINARY_INV)
+        cv.imshow(cardRef.current!, carddst);
+
+        const cnts2 = new cv.MatVector();
+        const hierarchy2: Mat = new cv.Mat();
+
+        const cardoverlay = new cv.Mat(
+          carddst.rows,
+          carddst.cols,
+          cv.CV_8UC4,
+          new cv.Scalar(0, 0, 0, 0)
+        );
+
+        cv.findContours(
+          carddst,
+          // @ts-ignore
+          cnts2,
+          hierarchy2,
+          cv.RETR_EXTERNAL,
+          cv.CHAIN_APPROX_SIMPLE
+        );
+
+        let contours2 = []
+        for (let i = 0; i < cnts2.size(); ++i) contours2.push(cnts2.get(i));
+
+        const result2 = [...contours2]
+          .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
+          .filter(a => cv.contourArea(a) > 2000);
+
+        const temp = new cv.MatVector();
+        result2.forEach(a => temp.push_back(a))
+
+        cv.drawContours(
+          cardoverlay,
+          // @ts-ignore
+          temp,
+          -1,
+          new cv.Scalar(255, 255, 0, 255),
+          5,
+          cv.LINE_8
+        );
+
+        console.log({
+          "contours.#": result2.length,
+          "isConvex": cv.isContourConvex(result2[0])
+        })
+
+        cv.imshow(cardMaskRef.current!, cardoverlay);
         // console.log(points)
       }
 
@@ -549,9 +609,24 @@ const SetCamera: FunctionalComponent = () => {
             margin: "10px",
           }}
         >
-          <p style={{ margin: "2px" }}>Mask</p>
+          <p style={{ margin: "2px" }}>Card Threshold</p>
           <canvas
             ref={cardRef}
+            style={{
+              height: "20vh",
+              minHeight: "100px",
+              border: "1px white solid",
+            }}
+          ></canvas>
+        </div>
+        <div
+          style={{
+            margin: "10px",
+          }}
+        >
+          <p style={{ margin: "2px" }}>Card Mask</p>
+          <canvas
+            ref={cardMaskRef}
             style={{
               height: "20vh",
               minHeight: "100px",

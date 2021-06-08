@@ -13,7 +13,8 @@ import useOrientationChange, {
   Orientation,
 } from "../../hooks/use-orientation-change";
 import { drawMat, extractContours } from "../../opencv-helpers";
-import { Card, cardToString, Color, Count, createCard, Fill, isSet, Shape } from "../../types/set";
+import combinations, { Card, cardToString, Color, Count, createCard, Fill, isSet, Shape } from "../../types/set";
+import _ from "lodash"
 
 // TODO: stop video tracks
 // cameraStream: undefined as undefined | MediaStream,
@@ -490,8 +491,14 @@ const SetCamera: FunctionalComponent = () => {
     dst.delete();
     cleanupCardContours();
 
-    const result = detectedCards.filter((card) => card !== undefined);
-    isSet(result.slice(0, 3))
+    const result = detectedCards.filter((card) => card !== undefined) as Card[];
+
+    const sets = combinations(result, 3)
+    .map(possibleSet => ({possibleSet, isSet: isSet(possibleSet as [Card, Card, Card])}))
+    .filter(({isSet}) => isSet)
+
+    console.log(sets)
+    
     return Promise.resolve(result);
   }, []);
   const [state, send, service] = useMachine(machine, {

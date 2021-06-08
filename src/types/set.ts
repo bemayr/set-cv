@@ -63,6 +63,29 @@ const fillToNumber = {
   solid: 2
 }
 
+export default function combinations<T>(collection: T[], n: number): T[][] {
+	let array = collection;
+	if (array.length < n) {
+		return [];
+	}
+	let recur = ((array: T[], n: number) => {
+		if (--n < 0) {
+			return [[]] as T[][];
+		}
+		let combinations = [] as T[][];
+		array = array.slice();
+		while (array.length - n) {
+			let value = array.shift();
+			recur(array, n).forEach((combination: any) => {
+				combination.unshift(value);
+				combinations.push(combination);
+			});
+		}
+		return combinations;
+	});
+	return recur(array, n);
+}
+
 export function isSet(cards: [Card, Card, Card]): boolean {
   const result = cards
     .map(card => [card.count, colorToNumber[card.color], shapeToNumber[card.shape], fillToNumber[card.fill]])
@@ -70,7 +93,6 @@ export function isSet(cards: [Card, Card, Card]): boolean {
       [count + currentCount, color + currentColor, shape + currentShape, fill + currentFill], [0, 0, 0, 0])
     .map(sum => sum % 3)
     .reduce((sum, current) => sum + current, 0)
-    console.log(result)
     return result === 0;
 }
 

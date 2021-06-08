@@ -289,19 +289,23 @@ const SetCamera: FunctionalComponent = () => {
       );
 
       let card = new cv.Mat();
+      // @ts-ignore
       let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, from);
+      // @ts-ignore
       let dstTri = cv.matFromArray(
         4,
         1,
         cv.CV_32FC2,
         [0, 0, 200, 0, 200, 310, 0, 310]
       );
+      // @ts-ignore
       let M = cv.getPerspectiveTransform(srcTri, dstTri);
       let dsize = new cv.Size(200, 310);
       // You can try more different parameters
       cv.warpPerspective(
         src,
         card,
+        // @ts-ignore
         M,
         dsize,
         cv.INTER_LINEAR,
@@ -310,42 +314,6 @@ const SetCamera: FunctionalComponent = () => {
       );
 
       return card;
-    }
-
-    function detectShade(src: Mat, shapes: Mat[]) {
-      const dst = src.clone();
-      let mask = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC1, new cv.Scalar(0));
-
-      cv.cvtColor(dst, dst, cv.COLOR_RGBA2GRAY);
-
-      const temp = new cv.MatVector();
-      shapes.forEach((a) => temp.push_back(a));
-
-      cv.drawContours(
-        mask,
-        // @ts-ignore
-        temp,
-        -1,
-        new cv.Scalar(255),
-        cv.FILLED
-      );
-
-      const mean = cv.mean(dst, mask);
-      const minMaxLoc = cv.minMaxLoc(dst, mask);
-      const classificationValue = minMaxLoc.minVal / mean[0];
-
-      if (classificationValue > 0.9) {
-        console.log("SOLID");
-      } else {
-        if (classificationValue > 0.8) {
-          console.log("STRIPED");
-        } else {
-          console.log("EMPTY");
-        }
-      }
-      mask.delete();
-      dst.delete();
-      temp.delete();
     }
 
     const [{ contours }, cleanupCardContours] = extractContours(
@@ -441,6 +409,7 @@ const SetCamera: FunctionalComponent = () => {
         return "oval";
       }
       function extractColor(card: Mat, mask: Mat): Color {
+        // @ts-ignore
         const [red, green, blue] = cv.mean(card, mask);
         if (green > red && green > blue) return "green";
         if (red > green && red > blue) return "red";
@@ -479,6 +448,7 @@ const SetCamera: FunctionalComponent = () => {
         cv.imshow(cardRef.current!, gray);
         cv.imshow(cardMaskRef.current!, mask);
 
+        // @ts-ignore
         const mean = cv.mean(gray, mask)[0];
 
         if(mean < 10) return "solid";

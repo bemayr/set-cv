@@ -13,7 +13,7 @@ import useOrientationChange, {
   Orientation,
 } from "../../hooks/use-orientation-change";
 import { drawMat, extractContours } from "../../opencv-helpers";
-import { Shape } from "../../types/set";
+import { Color, Fill, Shape } from "../../types/set";
 
 // TODO: stop video tracks
 // cameraStream: undefined as undefined | MediaStream,
@@ -314,7 +314,6 @@ const SetCamera: FunctionalComponent = () => {
     }
 
     function detectShade(src: Mat, shapes: Mat[]) {
-
       const dst = src.clone();
       let mask = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC1, new cv.Scalar(0));
 
@@ -331,54 +330,18 @@ const SetCamera: FunctionalComponent = () => {
         new cv.Scalar(255),
         cv.FILLED
       );
-      
+
       const mean = cv.mean(dst, mask);
       const minMaxLoc = cv.minMaxLoc(dst, mask);
-      const classificationValue = (minMaxLoc.minVal / mean[0]);
-      
-      if(classificationValue > 0.9){
+      const classificationValue = minMaxLoc.minVal / mean[0];
+
+      if (classificationValue > 0.9) {
         console.log("SOLID");
-      }else {
-        if(classificationValue > 0.8){
+      } else {
+        if (classificationValue > 0.8) {
           console.log("STRIPED");
-        }
-        else{
+        } else {
           console.log("EMPTY");
-        }
-      }
-      mask.delete();
-      dst.delete();
-      temp.delete();
-    }
-
-    function detectColor(src: Mat, shapes: Mat[]) {
-
-      const dst = src.clone();
-      let mask = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC1, new cv.Scalar(0));
-
-      const temp = new cv.MatVector();
-      shapes.forEach((a) => temp.push_back(a));
-
-      cv.drawContours(
-        mask,
-        // @ts-ignore
-        temp,
-        -1,
-        new cv.Scalar(255),
-        cv.FILLED
-      );
-      
-      const [r, g, b, a] = cv.mean(dst, mask);
-      console.log(r +" " +g +" " + b);
-      if( g >r && g > b){
-        console.log("GREEN");
-      }
-      else{
-        if( r >g && r > b){
-          console.log("RED");
-        }
-        else{
-          console.log("PURPLE");
         }
       }
       mask.delete();
@@ -404,34 +367,34 @@ const SetCamera: FunctionalComponent = () => {
       const card = extractCard(src, approximation);
       cv.imshow(cardRef.current!, card);
 
-      const carddst = new cv.Mat(card.rows, card.cols, cv.CV_8UC1);
+      const cardMask = new cv.Mat(card.rows, card.cols, cv.CV_8UC1);
       const cardoverlay = new cv.Mat(
-        carddst.rows,
-        carddst.cols,
+        cardMask.rows,
+        cardMask.cols,
         cv.CV_8UC4,
         new cv.Scalar(0, 0, 0, 0)
       );
 
-      cv.cvtColor(card, carddst, cv.COLOR_RGBA2GRAY);
+      cv.cvtColor(card, cardMask, cv.COLOR_RGBA2GRAY);
       cv.GaussianBlur(
-        carddst,
-        carddst,
+        cardMask,
+        cardMask,
         new cv.Size(3, 3),
         0,
         0,
         cv.BORDER_DEFAULT
       );
       cv.threshold(
-        carddst,
-        carddst,
+        cardMask,
+        cardMask,
         120,
         255,
         cv.THRESH_BINARY_INV + cv.THRESH_OTSU
       );
-      cv.imshow(cardRef.current!, carddst);
+      cv.imshow(cardRef.current!, cardMask);
 
       const [{ contours }, cleanup] = extractContours(
-        carddst,
+        cardMask,
         cv.RETR_EXTERNAL,
         cv.CHAIN_APPROX_SIMPLE
       );
@@ -453,10 +416,9 @@ const SetCamera: FunctionalComponent = () => {
       console.log({
         count: extractCount(shapeContours),
         shape: extractShape(shapeContours),
+        color: extractColor(card, cardMask),
+        fill: extractFill(card, shapeContours),
       });
-
-      detectShade(card, shapeContours.map(({contour}) => contour));
-      detectColor(card, shapeContours.map(({contour}) => contour));
 
       function extractCount(
         contours: ApproximatedContours
@@ -480,7 +442,47 @@ const SetCamera: FunctionalComponent = () => {
         return "oval";
       }
 
-      cv.imshow(cardMaskRef.current!, cardoverlay);
+      function extractColor(card: Mat, mask: Mat): Color {
+        const [red, green, blue] = cv.mean(card, mask);
+        if (green > red && green > blue) return "green";
+        if (red > green && red > blue) return "red";
+        return "purple";
+      }
+
+      function extractFill(card: Mat, contours: ApproximatedContours): Fill {
+        const gray = card.clone();
+        cv.cvtColor(card, gray, cv.COLOR_RGBA2GRAY);
+        // cv.threshold(gray, gray, 230, 255, cv.THRESH_BINARY);
+        cv.GaussianBlur(gray, gray, new cv.Size(7, 7), 0, 0, cv.BORDER_DEFAULT);
+        let mask = new cv.Mat(card.rows, card.cols, cv.CV_8UC1, new cv.Scalar(0));
+
+        const contoursVec = new cv.MatVector();
+        contours.forEach(({contour}) => contoursVec.push_back(contour));
+
+        cv.drawContours(
+          mask,
+          // @ts-ignore
+          contoursVec,
+          -1,
+          new cv.Scalar(255),
+          cv.FILLED
+        );
+
+        cv.imshow(cardMaskRef.current!, gray);
+
+        const mean = cv.mean(gray, mask);
+        const minMaxLoc = cv.minMaxLoc(gray, mask);
+        gray.delete();
+        const classificationValue = minMaxLoc.minVal / mean[0];
+
+        console.log({mean: mean[0], minMaxLoc, classificationValue})
+
+        if(mean[0] > 205) return "blank";
+        if(mean[0] > 160) return "striped";
+        return "solid"
+      }
+
+      // cv.imshow(cardMaskRef.current!, cardoverlay);
 
       cleanup();
 
@@ -608,7 +610,7 @@ const SetCamera: FunctionalComponent = () => {
         // width={videoDimensions.width}
         // height={videoDimensions.height}
         onLoadedMetadata={() => send("CAMERA_READY")}
-      // height={600}
+        // height={600}
       ></video>
       {/* <canvas
         ref={overlayRef}

@@ -13,6 +13,7 @@ import useOrientationChange, {
   Orientation,
 } from "../../hooks/use-orientation-change";
 import { drawMat, extractContours } from "../../opencv-helpers";
+import { Shape } from "../../types/set";
 
 // TODO: stop video tracks
 // cameraStream: undefined as undefined | MediaStream,
@@ -220,14 +221,25 @@ const SetCamera: FunctionalComponent = () => {
     cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
     cv.imshow(thresholdRef.current!, dst);
 
-    function addApproximation(contour: Mat): {
-      contour: Mat;
-      approximation: Mat;
-    } {
-      const peri = cv.arcLength(contour, true);
-      const approximation = new cv.Mat();
-      cv.approxPolyDP(contour, approximation, 0.04 * peri, true);
-      return { contour, approximation };
+    function byContourArea(first: Mat, second: Mat) {
+      return cv.contourArea(second) - cv.contourArea(first);
+    }
+
+    function addApproximation(perimeterScale: number) {
+      return function (contour: Mat): {
+        contour: Mat;
+        approximation: Mat;
+      } {
+        const perimeter = cv.arcLength(contour, true);
+        const approximation = new cv.Mat();
+        cv.approxPolyDP(
+          contour,
+          approximation,
+          perimeter * perimeterScale,
+          true
+        );
+        return { contour, approximation };
+      };
     }
 
     function mightBeCard({ approximation }: { approximation: Mat }): boolean {
@@ -235,6 +247,11 @@ const SetCamera: FunctionalComponent = () => {
       const hasMinimumSize = cv.contourArea(approximation) > 500;
       const isConvex = cv.isContourConvex(approximation);
       return has4Corners && hasMinimumSize && isConvex;
+    }
+
+    function mightBeShape({ approximation }: { approximation: Mat }): boolean {
+      const hasMinimumSize = cv.contourArea(approximation) > 2000;
+      return hasMinimumSize;
     }
 
     // TODO: optimize
@@ -302,12 +319,10 @@ const SetCamera: FunctionalComponent = () => {
       cv.CHAIN_APPROX_SIMPLE
     );
     const cardContours = contours
-      .sort((first, second) => cv.contourArea(second) - cv.contourArea(first))
-      .map(addApproximation)
+      .sort(byContourArea)
+      .map(addApproximation(0.04))
       .filter(mightBeCard)
       .slice(0, 18);
-
-    console.log(cardContours.length);
 
     cardContours.forEach(({ contour, approximation }) => {
       drawMat(contour, overlay, new cv.Scalar(255, 0, 0, 255));
@@ -349,30 +364,49 @@ const SetCamera: FunctionalComponent = () => {
       );
 
       const shapeContours = contours
-        .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))
-        .filter((a) => cv.contourArea(a) > 2000);
+        .sort(byContourArea)
+        .map(addApproximation(0.02))
+        .filter(mightBeShape);
 
-      const temp = new cv.MatVector();
-      shapeContours.forEach((a) => temp.push_back(a));
-
-      cv.drawContours(
-        cardoverlay,
-        // @ts-ignore
-        temp,
-        -1,
-        new cv.Scalar(255, 255, 0, 255),
-        5,
-        cv.LINE_8
+      shapeContours.forEach(({ approximation }) =>
+        drawMat(approximation, cardoverlay, new cv.Scalar(255, 0, 0, 255))
       );
 
+      type ApproximatedContours = {
+        contour: Mat;
+        approximation: Mat;
+      }[];
+
       console.log({
-        "contours.#": shapeContours.length,
-        isConvex: cv.isContourConvex(shapeContours[0]),
+        count: extractCount(shapeContours),
+        shape: extractShape(shapeContours),
       });
+
+      function extractCount(
+        contours: ApproximatedContours
+      ): number | undefined {
+        switch (contours.length) {
+          case 1:
+            return 1;
+          case 2:
+            return 2;
+          case 3:
+            return 3;
+          default:
+            return undefined;
+        }
+      }
+      function extractShape(contours: ApproximatedContours): Shape | undefined {
+        const approximation = contours[0]?.approximation;
+        if (approximation === undefined) return undefined;
+        if (!cv.isContourConvex(approximation)) return "squiggle";
+        if (approximation.size().height === 4) return "diamond";
+        return "oval";
+      }
 
       cv.imshow(cardMaskRef.current!, cardoverlay);
 
-      cleanup()
+      cleanup();
 
       contour.delete();
       approximation.delete();

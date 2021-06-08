@@ -13,6 +13,8 @@ export interface Card {
 function createCard(properties: {
   count: Count | undefined;
   color: Color | undefined;
+  shape: Shape | undefined;
+  fill: Fill | undefined;
 }): Card | Error {
   return new Error("oh noooo");
 }

@@ -316,7 +316,7 @@ const SetCamera: FunctionalComponent = () => {
       return card;
     }
 
-    const [{ contours }, cleanupCardContours] = extractContours(
+    const {result: {contours}, cleanup: cleanupCardContours} = extractContours(
       dst,
       cv.RETR_EXTERNAL,
       cv.CHAIN_APPROX_SIMPLE
@@ -360,7 +360,7 @@ const SetCamera: FunctionalComponent = () => {
       );
       cv.imshow(cardRef.current!, cardMask);
 
-      const [{ contours }, cleanup] = extractContours(
+      const {result: { contours }, cleanup} = extractContours(
         cardMask,
         cv.RETR_EXTERNAL,
         cv.CHAIN_APPROX_SIMPLE

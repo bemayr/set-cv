@@ -4,11 +4,12 @@ import {
   ContourApproximationModes,
   RetrievalModes,
 } from "opencv-ts/src/ImageProcessing/Shape";
+
 export function extractContours(
   image: Mat,
   mode: RetrievalModes,
   method: ContourApproximationModes
-): [result: { contours: Mat[]; hierarchy: Mat }, cleanup: () => void] {
+): {result: { contours: Mat[]; hierarchy: Mat }, cleanup: () => void} {
   const cnts = new cv.MatVector();
   const hierarchy: Mat = new cv.Mat();
   const contours: Mat[] = [];
@@ -18,16 +19,16 @@ export function extractContours(
   // @ts-ignore
   for (let i = 0; i < cnts.size(); ++i) contours.push(cnts.get(i));
 
-  return [
-    {
+  return {
+    result: {
       contours,
       hierarchy,
     },
-    () => {
+    cleanup: () => {
       cnts.delete();
       hierarchy.delete();
     },
-  ];
+  };
 }
 
 export function drawMat(

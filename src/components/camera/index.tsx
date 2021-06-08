@@ -13,7 +13,7 @@ import useOrientationChange, {
   Orientation,
 } from "../../hooks/use-orientation-change";
 import { drawMat, extractContours } from "../../opencv-helpers";
-import { Color, Fill, Shape } from "../../types/set";
+import { Card, cardToString, Color, Count, createCard, Fill, Shape } from "../../types/set";
 
 // TODO: stop video tracks
 // cameraStream: undefined as undefined | MediaStream,
@@ -28,6 +28,7 @@ const model = createModel(
     orientation: "landscape" as Orientation,
     src: undefined as any as typeof cv.Mat,
     cap: undefined as any as typeof cv.VideoCapture,
+    cards: [] as Card[]
   },
   {
     events: {
@@ -147,7 +148,14 @@ const machine = createMachine<typeof model>(
           detectionRunning: {
             invoke: {
               src: "detectCards",
-              onDone: "idle",
+              onDone: {
+                target: "idle",
+                actions: [
+                  assign({
+                    cards: (_, event) => event.data,
+                  }),
+                ],
+              },
             },
           },
         },
@@ -316,18 +324,17 @@ const SetCamera: FunctionalComponent = () => {
       return card;
     }
 
-    const {result: {contours}, cleanup: cleanupCardContours} = extractContours(
-      dst,
-      cv.RETR_EXTERNAL,
-      cv.CHAIN_APPROX_SIMPLE
-    );
+    const {
+      result: { contours },
+      cleanup: cleanupCardContours,
+    } = extractContours(dst, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
     const cardContours = contours
       .sort(byContourArea)
       .map(addApproximation(0.04))
       .filter(mightBeCard)
       .slice(0, 18);
 
-    cardContours.forEach(({ contour, approximation }) => {
+    const detectedCards = cardContours.map(({ contour, approximation }) => {
       drawMat(contour, overlay, new cv.Scalar(255, 0, 0, 255));
       drawMat(approximation, overlay, new cv.Scalar(0, 255, 0, 255));
 
@@ -358,13 +365,12 @@ const SetCamera: FunctionalComponent = () => {
         255,
         cv.THRESH_BINARY_INV + cv.THRESH_OTSU
       );
-      cv.imshow(cardRef.current!, cardMask);
+      // cv.imshow(cardRef.current!, cardMask);
 
-      const {result: { contours }, cleanup} = extractContours(
-        cardMask,
-        cv.RETR_EXTERNAL,
-        cv.CHAIN_APPROX_SIMPLE
-      );
+      const {
+        result: { contours },
+        cleanup: cleanupShapeContours,
+      } = extractContours(cardMask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
       const shapeContours = contours
         .sort(byContourArea)
@@ -380,16 +386,14 @@ const SetCamera: FunctionalComponent = () => {
         approximation: Mat;
       }[];
 
-      console.log({
+      const detectedCard = createCard({
         count: extractCount(shapeContours),
         shape: extractShape(shapeContours),
         color: extractColor(card, cardMask),
         fill: extractFill(card, shapeContours),
       });
 
-      function extractCount(
-        contours: ApproximatedContours
-      ): number | undefined {
+      function extractCount(contours: ApproximatedContours): Count | undefined {
         switch (contours.length) {
           case 1:
             return 1;
@@ -420,10 +424,15 @@ const SetCamera: FunctionalComponent = () => {
         cv.cvtColor(card, gray, cv.COLOR_RGBA2GRAY);
         cv.threshold(gray, gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
 
-        let mask = new cv.Mat(card.rows, card.cols, cv.CV_8UC1, new cv.Scalar(0));
+        let mask = new cv.Mat(
+          card.rows,
+          card.cols,
+          cv.CV_8UC1,
+          new cv.Scalar(0)
+        );
 
         const contoursVec = new cv.MatVector();
-        contours.forEach(({contour}) => contoursVec.push_back(contour));
+        contours.forEach(({ contour }) => contoursVec.push_back(contour));
 
         // Fill Shapes
         cv.drawContours(
@@ -442,7 +451,7 @@ const SetCamera: FunctionalComponent = () => {
           -1,
           new cv.Scalar(0),
           10,
-          cv.LINE_8,
+          cv.LINE_8
         );
 
         cv.imshow(cardRef.current!, gray);
@@ -450,18 +459,27 @@ const SetCamera: FunctionalComponent = () => {
 
         // @ts-ignore
         const mean = cv.mean(gray, mask)[0];
+        gray.delete();
+        mask.delete();
 
-        if(mean < 10) return "solid";
-        if(mean > 245) return "blank";
-        return "striped"
+        if (mean < 10) return "solid";
+        if (mean > 245) return "blank";
+        return "striped";
       }
 
       // cv.imshow(cardMaskRef.current!, cardoverlay);
 
-      cleanup();
+      shapeContours.forEach(({ contour, approximation }) => {
+        contour.delete();
+        approximation.delete();
+      });
+
+      cleanupShapeContours();
 
       contour.delete();
       approximation.delete();
+
+      return detectedCard;
     });
 
     // cv.imshow(canvasRef.current!, dst);
@@ -472,7 +490,7 @@ const SetCamera: FunctionalComponent = () => {
     dst.delete();
     cleanupCardContours();
 
-    return Promise.resolve();
+    return Promise.resolve(detectedCards.filter((card) => card !== undefined));
   }, []);
   const [state, send, service] = useMachine(machine, {
     devTools: true,
@@ -562,7 +580,7 @@ const SetCamera: FunctionalComponent = () => {
       )
   );
 
-  const FPS = 1;
+  const FPS = 5;
   // useRaf(() => send("SCAN"), true);
   useInterval(() => send("DETECT"), 1000 / FPS, true);
 
@@ -669,16 +687,17 @@ const SetCamera: FunctionalComponent = () => {
           position: "absolute",
           backgroundColor: "white",
           padding: "1em",
-          fontSize: "8px",
+          fontSize: "16px",
         }}
       >
         {/* <p>State: {JSON.stringify(state.value, null, 2)}</p> */}
         {/* <p>Context: {JSON.stringify(state.context, null, 2)}</p> */}
-        <div>
+        {/* <div>
           Stream Dimensions: {JSON.stringify(streamDimensions, null, 2)}
         </div>
         <div>Video Dimensions: {JSON.stringify(videoDimensions, null, 2)}</div>
-        <div>Orientation: {orientation}</div>
+        <div>Orientation: {orientation}</div> */}
+        <div>Detected Cards: {JSON.stringify(state.context.cards.map(cardToString), null, 2)}</div>
         {/* {cameras.map((camera) => (
           <div key={camera.deviceId} value={camera.deviceId}>
             {camera.label}

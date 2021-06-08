@@ -10,11 +10,38 @@ export interface Card {
   fill: Fill;
 }
 
-function createCard(properties: {
+export function createCard({
+  count,
+  color,
+  shape,
+  fill,
+}: {
   count: Count | undefined;
-  color: Color | undefined;
+  color: Color;
   shape: Shape | undefined;
-  fill: Fill | undefined;
-}): Card | Error {
-  return new Error("oh noooo");
+  fill: Fill;
+}): Card | undefined {
+  if (count === undefined || shape === undefined)
+    return undefined;
+  return { count, color, shape, fill };
+}
+
+const colorToString = {
+  green: "G",
+  red: "R",
+  purple: "P"
+}
+const shapeToString = {
+  oval: "0",
+  diamond: "♢",
+  squiggle: "∿"
+}
+const fillToString = {
+  blank: "☐",
+  striped: "║",
+  solid: "█"
+}
+
+export function cardToString(card: Card): string {
+  return `${colorToString[card.color]}${card.count}${fillToString[card.fill]}${shapeToString[card.shape]}`
 }

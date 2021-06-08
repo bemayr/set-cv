@@ -13,7 +13,7 @@ import useOrientationChange, {
   Orientation,
 } from "../../hooks/use-orientation-change";
 import { drawMat, extractContours } from "../../opencv-helpers";
-import { Card, cardToString, Color, Count, createCard, Fill, Shape } from "../../types/set";
+import { Card, cardToString, Color, Count, createCard, Fill, isSet, Shape } from "../../types/set";
 
 // TODO: stop video tracks
 // cameraStream: undefined as undefined | MediaStream,
@@ -490,7 +490,9 @@ const SetCamera: FunctionalComponent = () => {
     dst.delete();
     cleanupCardContours();
 
-    return Promise.resolve(detectedCards.filter((card) => card !== undefined));
+    const result = detectedCards.filter((card) => card !== undefined);
+    isSet(result.slice(0, 3))
+    return Promise.resolve(result);
   }, []);
   const [state, send, service] = useMachine(machine, {
     devTools: true,
@@ -532,8 +534,8 @@ const SetCamera: FunctionalComponent = () => {
       startCamera: async ({ selectedCamera }) =>
         await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 4096 },
-            height: { ideal: 2160 },
+            width: 1920,
+            height: 1080,
             deviceId: { exact: selectedCamera },
           },
         }),
@@ -580,7 +582,7 @@ const SetCamera: FunctionalComponent = () => {
       )
   );
 
-  const FPS = 5;
+  const FPS = 1;
   // useRaf(() => send("SCAN"), true);
   useInterval(() => send("DETECT"), 1000 / FPS, true);
 
@@ -692,12 +694,12 @@ const SetCamera: FunctionalComponent = () => {
       >
         {/* <p>State: {JSON.stringify(state.value, null, 2)}</p> */}
         {/* <p>Context: {JSON.stringify(state.context, null, 2)}</p> */}
-        {/* <div>
+        <div>
           Stream Dimensions: {JSON.stringify(streamDimensions, null, 2)}
         </div>
         <div>Video Dimensions: {JSON.stringify(videoDimensions, null, 2)}</div>
-        <div>Orientation: {orientation}</div> */}
-        <div>Detected Cards: {JSON.stringify(state.context.cards.map(cardToString), null, 2)}</div>
+        <div>Orientation: {orientation}</div>
+        <div><b>Detected Cards: {JSON.stringify(state.context.cards.map(cardToString), null, 2)}</b></div>
         {/* {cameras.map((camera) => (
           <div key={camera.deviceId} value={camera.deviceId}>
             {camera.label}

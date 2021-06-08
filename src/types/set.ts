@@ -45,3 +45,43 @@ const fillToString = {
 export function cardToString(card: Card): string {
   return `${colorToString[card.color]}${card.count}${fillToString[card.fill]}${shapeToString[card.shape]}`
 }
+
+
+const colorToNumber = {
+  green: 0,
+  red: 1,
+  purple: 2
+}
+const shapeToNumber = {
+  oval: 0,
+  diamond: 1,
+  squiggle: 2
+}
+const fillToNumber = {
+  blank: 0,
+  striped: 1,
+  solid: 2
+}
+
+export function isSet(cards: [Card, Card, Card]): boolean {
+  const result = cards
+    .map(card => [card.count, colorToNumber[card.color], shapeToNumber[card.shape], fillToNumber[card.fill]])
+    .reduce(([count, color, shape, fill], [currentCount, currentColor, currentShape, currentFill]) =>
+      [count + currentCount, color + currentColor, shape + currentShape, fill + currentFill], [0, 0, 0, 0])
+    .map(sum => sum % 3)
+    .reduce((sum, current) => sum + current, 0)
+    console.log(result)
+    return result === 0;
+}
+
+// def is_set(triplet):
+//     # sum of attributes
+//     sum_attributes = [sum(a) for a in zip(*triplet)]
+    
+//     # take modulo 3 of attribute sums
+//     sum_attributes_mod3 = [a % 3 for a in sum_attributes]
+    
+//     # all attributes should have a sum of 0
+//     if sum(sum_attributes_mod3) == 0:
+//         return True
+//     return False

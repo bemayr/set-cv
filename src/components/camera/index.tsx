@@ -219,7 +219,6 @@ const SetCamera: FunctionalComponent = () => {
 
     cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
     cv.threshold(dst, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-    cv.imshow(thresholdRef.current!, dst);
 
     function byContourArea(first: Mat, second: Mat) {
       return cv.contourArea(second) - cv.contourArea(first);
@@ -365,7 +364,7 @@ const SetCamera: FunctionalComponent = () => {
       drawMat(approximation, overlay, new cv.Scalar(0, 255, 0, 255));
 
       const card = extractCard(src, approximation);
-      cv.imshow(cardRef.current!, card);
+      // cv.imshow(cardRef.current!, card);
 
       const cardMask = new cv.Mat(card.rows, card.cols, cv.CV_8UC1);
       const cardoverlay = new cv.Mat(
@@ -441,24 +440,23 @@ const SetCamera: FunctionalComponent = () => {
         if (approximation.size().height === 4) return "diamond";
         return "oval";
       }
-
       function extractColor(card: Mat, mask: Mat): Color {
         const [red, green, blue] = cv.mean(card, mask);
         if (green > red && green > blue) return "green";
         if (red > green && red > blue) return "red";
         return "purple";
       }
-
       function extractFill(card: Mat, contours: ApproximatedContours): Fill {
         const gray = card.clone();
         cv.cvtColor(card, gray, cv.COLOR_RGBA2GRAY);
-        // cv.threshold(gray, gray, 230, 255, cv.THRESH_BINARY);
-        cv.GaussianBlur(gray, gray, new cv.Size(7, 7), 0, 0, cv.BORDER_DEFAULT);
+        cv.threshold(gray, gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+
         let mask = new cv.Mat(card.rows, card.cols, cv.CV_8UC1, new cv.Scalar(0));
 
         const contoursVec = new cv.MatVector();
         contours.forEach(({contour}) => contoursVec.push_back(contour));
 
+        // Fill Shapes
         cv.drawContours(
           mask,
           // @ts-ignore
@@ -467,19 +465,25 @@ const SetCamera: FunctionalComponent = () => {
           new cv.Scalar(255),
           cv.FILLED
         );
+        // Erase Contours
+        cv.drawContours(
+          mask,
+          // @ts-ignore
+          contoursVec,
+          -1,
+          new cv.Scalar(0),
+          10,
+          cv.LINE_8,
+        );
 
-        cv.imshow(cardMaskRef.current!, gray);
+        cv.imshow(cardRef.current!, gray);
+        cv.imshow(cardMaskRef.current!, mask);
 
-        const mean = cv.mean(gray, mask);
-        const minMaxLoc = cv.minMaxLoc(gray, mask);
-        gray.delete();
-        const classificationValue = minMaxLoc.minVal / mean[0];
+        const mean = cv.mean(gray, mask)[0];
 
-        console.log({mean: mean[0], minMaxLoc, classificationValue})
-
-        if(mean[0] > 205) return "blank";
-        if(mean[0] > 160) return "striped";
-        return "solid"
+        if(mean < 10) return "solid";
+        if(mean > 245) return "blank";
+        return "striped"
       }
 
       // cv.imshow(cardMaskRef.current!, cardoverlay);
@@ -491,7 +495,8 @@ const SetCamera: FunctionalComponent = () => {
     });
 
     // cv.imshow(canvasRef.current!, dst);
-    // cv.imshow(overlayRef.current!, overlay);
+    cv.imshow(thresholdRef.current!, dst);
+    cv.imshow(overlayRef.current!, overlay);
 
     overlay.delete();
     dst.delete();
@@ -648,7 +653,7 @@ const SetCamera: FunctionalComponent = () => {
             margin: "10px",
           }}
         >
-          <p style={{ margin: "2px" }}>Mask</p>
+          <p style={{ margin: "2px" }}>Overlay</p>
           <canvas
             ref={overlayRef}
             style={{

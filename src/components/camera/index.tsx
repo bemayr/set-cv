@@ -14,7 +14,6 @@ import useOrientationChange, {
 } from "../../hooks/use-orientation-change";
 import { drawMat, extractContours } from "../../opencv-helpers";
 import combinations, { Card, cardToString, Color, Count, createCard, Fill, isSet, Shape } from "../../types/set";
-import _ from "lodash"
 
 // TODO: stop video tracks
 // cameraStream: undefined as undefined | MediaStream,

@@ -296,6 +296,79 @@ const SetCamera: FunctionalComponent = () => {
       return card;
     }
 
+    function detectShade(src: Mat, shapes: Mat[]) {
+
+      const dst = src.clone();
+      let mask = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC1, new cv.Scalar(0));
+
+      cv.cvtColor(dst, dst, cv.COLOR_RGBA2GRAY);
+
+      const temp = new cv.MatVector();
+      shapes.forEach((a) => temp.push_back(a));
+
+      cv.drawContours(
+        mask,
+        // @ts-ignore
+        temp,
+        -1,
+        new cv.Scalar(255),
+        cv.FILLED
+      );
+      
+      const mean = cv.mean(dst, mask);
+      const minMaxLoc = cv.minMaxLoc(dst, mask);
+      const classificationValue = (minMaxLoc.minVal / mean[0]);
+      
+      if(classificationValue > 0.9){
+        console.log("SOLID");
+      }else {
+        if(classificationValue > 0.8){
+          console.log("STRIPED");
+        }
+        else{
+          console.log("EMPTY");
+        }
+      }
+      mask.delete();
+      dst.delete();
+      temp.delete();
+    }
+
+    function detectColor(src: Mat, shapes: Mat[]) {
+
+      const dst = src.clone();
+      let mask = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC1, new cv.Scalar(0));
+
+      const temp = new cv.MatVector();
+      shapes.forEach((a) => temp.push_back(a));
+
+      cv.drawContours(
+        mask,
+        // @ts-ignore
+        temp,
+        -1,
+        new cv.Scalar(255),
+        cv.FILLED
+      );
+      
+      const [r, g, b, a] = cv.mean(dst, mask);
+      console.log(r +" " +g +" " + b);
+      if( g >r && g > b){
+        console.log("GREEN");
+      }
+      else{
+        if( r >g && r > b){
+          console.log("RED");
+        }
+        else{
+          console.log("PURPLE");
+        }
+      }
+      mask.delete();
+      dst.delete();
+      temp.delete();
+    }
+
     const [{ contours }, cleanupCardContours] = extractContours(
       dst,
       cv.RETR_EXTERNAL,
@@ -367,10 +440,11 @@ const SetCamera: FunctionalComponent = () => {
 
       console.log({
         "contours.#": shapeContours.length,
-        isConvex: cv.isContourConvex(shapeContours[0]),
+        // isConvex: cv.isContourConvex(shapeContours[0]),
       });
-
-      cv.imshow(cardMaskRef.current!, cardoverlay);
+      detectShade(card, shapeContours);
+      detectColor(card, shapeContours);
+      // cv.imshow(cardMaskRef.current!, cardoverlay);
 
       cleanup()
 
@@ -379,7 +453,7 @@ const SetCamera: FunctionalComponent = () => {
     });
 
     // cv.imshow(canvasRef.current!, dst);
-    cv.imshow(overlayRef.current!, overlay);
+    // cv.imshow(overlayRef.current!, overlay);
 
     overlay.delete();
     dst.delete();
@@ -498,7 +572,7 @@ const SetCamera: FunctionalComponent = () => {
         // width={videoDimensions.width}
         // height={videoDimensions.height}
         onLoadedMetadata={() => send("CAMERA_READY")}
-        // height={600}
+      // height={600}
       ></video>
       {/* <canvas
         ref={overlayRef}

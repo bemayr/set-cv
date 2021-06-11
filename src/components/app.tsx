@@ -13,7 +13,7 @@ const App: FunctionalComponent = () => {
     const dimensions = useWindowDimensions();
 
     return (
-        <div id="preact_root">
+        <div id="app">
             {/* <SetCamera/> */}
             <Camera />
             <Controls />

@@ -21,6 +21,8 @@
     ]
   },
   "dependencies": {
+    "@flatlinediver/react-spinner": "^2.0.10",
+    "@react-css/flex": "^1.4.4",
     "@rmwc/fab": "^6.1.4",
     "@rmwc/icon": "^6.1.4",
     "@rmwc/menu": "^6.1.4",

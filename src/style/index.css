@@ -16,3 +16,7 @@ html, body {
 #app {
 	height: 100%;
 }
+
+#camera-select {
+	min-width: 300px;
+}

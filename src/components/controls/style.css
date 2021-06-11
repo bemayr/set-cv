@@ -7,3 +7,7 @@
 .logo {
 	max-width: 300px;
 }
+
+#test {
+    min-width: 300px;
+}

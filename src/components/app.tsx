@@ -8,6 +8,7 @@ import '@rmwc/theme/styles';
 import '@rmwc/icon/styles';
 import '@rmwc/fab/styles';
 import '@rmwc/menu/styles';
+import '@rmwc/list/styles';
 
 const App: FunctionalComponent = () => {
     const dimensions = useWindowDimensions();

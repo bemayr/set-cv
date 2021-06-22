@@ -13,7 +13,7 @@ export const model = createModel(
     videoDimension: { width: 0, height: 0 },
     orientation: "landscape" as Orientation,
     reportTimeout: 30000,
-    fps: 3,
+    fps: 1,
     detectedSets: [] as Set[],
     visibleSets: [] as Set[],
   },
@@ -195,9 +195,9 @@ export const machine = createMachine<typeof model>(
                         },
                         after: {
                           5000: {
-                            actions: [send("RECHECK_VISIBLE_SETS")]
-                          }
-                        }
+                            actions: [send("RECHECK_VISIBLE_SETS")],
+                          },
+                        },
                       },
                     },
                   },
@@ -256,6 +256,10 @@ export const machine = createMachine<typeof model>(
           return event.data;
         },
       }),
+      reportSet: () => {
+        const msg = new SpeechSynthesisUtterance("There is a Set visible on the Table");
+        window.speechSynthesis.speak(msg);
+      },
     },
     services: {
       startCamera: async ({ selectedCamera }) =>

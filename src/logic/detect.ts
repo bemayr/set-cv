@@ -7,7 +7,7 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
   return function detectSets(context: typeof machine.context) {
     // @ts-ignore
     const video = videoRef.current;
-    const src = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+    const src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     const cap = new cv.VideoCapture(videoRef.current);
     const dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
     const overlay = new cv.Mat(
@@ -270,17 +270,10 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
     dst.delete();
     cleanupCardContours();
 
-    const result = detectedCards.filter((card) => card !== undefined) as Card[];
+    const cards = detectedCards.filter((card) => card !== undefined) as Card[];
+    const sets = combinations(cards, 3)
+      .filter((possibleSet) => isSet(possibleSet as [Card, Card, Card]));
 
-    const sets = combinations(result, 3)
-      .map((possibleSet) => ({
-        possibleSet,
-        isSet: isSet(possibleSet as [Card, Card, Card]),
-      }))
-      .filter(({ isSet }) => isSet);
-
-    console.log(sets);
-
-    return Promise.resolve(result);
+    return Promise.resolve(sets);
   };
 }

@@ -27,7 +27,7 @@ export const model = createModel(
       DETECTION_DONE: () => ({}),
       RECHECK_VISIBLE_SETS: () => ({}),
       "done.invoke.waitingForCameraStream": (data: MediaStream) => ({ data }),
-      "done.invoke.detectSets": (sets: Set[]) => ({ sets }),
+      "done.invoke.detectSets": (data: Set[]) => ({ data }),
     },
   }
 );
@@ -253,7 +253,7 @@ export const machine = createMachine<typeof model>(
       setDetectedSets: assign({
         detectedSets: (_, event) => {
           assertEvent(event, "done.invoke.detectSets");
-          return event.sets;
+          return event.data;
         },
       }),
     },

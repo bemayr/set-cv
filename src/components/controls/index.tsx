@@ -28,8 +28,7 @@ const Controls: FunctionalComponent<ControlProps> = (props) => {
       justifySpaceBetween
     >
       <Flex.Item style={{ margin: "2em" }}>
-        <img class={style.logo} src="/assets/logo.png" />
-        {props.masterState}
+        <img class={style.logo} src="assets/logo.png" />
       </Flex.Item>
       <Flex.Item alignSelfCenter>
         {props.isInitializing && <Spinner colors={["red", "green", "purple"]} size={40} thick />}

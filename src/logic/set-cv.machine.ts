@@ -120,9 +120,10 @@ export const machine = createMachine<typeof model>(
       },
       master: {
         initial: "stopped",
+        tags: "master",
         states: {
           stopped: {
-            tags: "master-stopped",
+            tags: ["master-stopped"],
             on: {
               TOGGLE_MASTER: "running",
               SET_REPORT_TIMEOUT: {

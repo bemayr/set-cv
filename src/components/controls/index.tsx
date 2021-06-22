@@ -11,6 +11,7 @@ import style from "./style.css";
 interface ControlProps {
   masterState: "stopped" | "running",
   isInitializing: boolean,
+  reportTimeout: number,
   toggleMasterState: () => void,
   cameraSelected: (camera: MediaDeviceInfo) => void
   timeoutSelected: (timeout: number | "none") => void
@@ -28,6 +29,7 @@ const Controls: FunctionalComponent<ControlProps> = (props) => {
     >
       <Flex.Item style={{ margin: "2em" }}>
         <img class={style.logo} src="/assets/logo.png" />
+        {props.masterState}
       </Flex.Item>
       <Flex.Item alignSelfCenter>
         {props.isInitializing && <Spinner colors={["red", "green", "purple"]} size={40} thick />}
@@ -38,9 +40,10 @@ const Controls: FunctionalComponent<ControlProps> = (props) => {
           style={{ margin: "2em" }}
           label={isStopped ? "Start" : "Stop"}
           theme={["primaryBg", "onPrimary"]}
+          disabled={props.isInitializing}
           onClick={props.toggleMasterState}
         />
-        {isStopped && <TimeoutSelect selectedTimeout="none" timeoutSelected={props.timeoutSelected} />}
+        {isStopped && <TimeoutSelect selectedTimeout={props.reportTimeout} timeoutSelected={props.timeoutSelected} />}
       </Flex>
     </Flex>
   );

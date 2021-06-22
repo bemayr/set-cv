@@ -36,10 +36,9 @@ export const machine = createMachine<typeof model>(
   {
     id: "set-cv",
     context: model.initialContext,
-    type: "parallel",
     on: {
       CAMERA_SELECTED: {
-        target: ["opencv.history", "camera.startingCamera"],
+        target: ["initializing.opencv.history", "initializing.camera.startingCamera"],
         actions: [
           "stopCameraStream",
           model.assign({
@@ -48,7 +47,7 @@ export const machine = createMachine<typeof model>(
         ],
       },
       ORIENTATION_CHANGED: {
-        target: ["opencv.history", "camera.startingCamera"],
+        target: ["initializing.opencv.history", "initializing.camera.startingCamera"],
         actions: [
           "stopCameraStream",
           model.assign({
@@ -57,59 +56,67 @@ export const machine = createMachine<typeof model>(
         ],
       },
     },
+    initial: "initializing",
     states: {
-      opencv: {
-        initial: "loading",
+      initializing: {
+        tags: "initializing",
+        type: "parallel",
         states: {
-          history: {
-            type: "history",
-          },
-          loading: {
-            invoke: {
-              id: "loadOpenCV",
-              src: "loadOpenCV",
-              onDone: {
-                target: "ready",
+          opencv: {
+            initial: "loading",
+            states: {
+              history: {
+                type: "history",
+              },
+              loading: {
+                invoke: {
+                  id: "loadOpenCV",
+                  src: "loadOpenCV",
+                  onDone: {
+                    target: "ready",
+                  },
+                },
+              },
+              ready: {
+                type: "final",
               },
             },
           },
-          ready: {
-            type: "final",
-          },
-        },
-      },
-      camera: {
-        initial: "noCameraSelected",
-        states: {
-          noCameraSelected: {},
-          startingCamera: {
-            invoke: {
-              id: "waitingForCameraStream",
-              src: "startCamera",
-              onDone: {
-                target: "waitingForCamera",
-                actions: [
-                  assign({
-                    cameraStream: (_, event) => event.data,
-                  }),
-                  "startVideo",
+          camera: {
+            initial: "noCameraSelected",
+            states: {
+              noCameraSelected: {},
+              startingCamera: {
+                invoke: {
+                  id: "waitingForCameraStream",
+                  src: "startCamera",
+                  onDone: {
+                    target: "waitingForCamera",
+                    actions: [
+                      assign({
+                        cameraStream: (_, event) => event.data,
+                      }),
+                      "startVideo",
+                    ],
+                  },
+                },
+              },
+              waitingForCamera: {
+                always: { target: "ready", cond: "isCameraReady" },
+                on: { CAMERA_READY: "ready" },
+              },
+              ready: {
+                entry: [
+                  "assignStreamDimension",
+                  "assignVideoDimension",
+                  "setVideoDimension",
                 ],
+                type: "final",
               },
             },
           },
-          waitingForCamera: {
-            always: { target: "ready", cond: "isCameraReady" },
-            on: { CAMERA_READY: "ready" },
-          },
-          ready: {
-            entry: [
-              "assignStreamDimension",
-              "assignVideoDimension",
-              "setVideoDimension",
-            ],
-            type: "final",
-          },
         },
+        onDone: "master"
       },
       master: {
         initial: "stopped",
@@ -218,9 +225,9 @@ export const machine = createMachine<typeof model>(
     guards: {
       isSetDetected: ({ detectedSets }) => detectedSets.length > 0,
       "detected==visible": ({ detectedSets, visibleSets }) =>
-      detectedSets.length === visibleSets.length,
+        detectedSets.length === visibleSets.length,
       "detected!=visible": ({ detectedSets, visibleSets }) =>
-      detectedSets.length !== visibleSets.length,
+        detectedSets.length !== visibleSets.length,
     },
     actions: {
       stopCameraStream: ({ cameraStream }) => {

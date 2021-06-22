@@ -1,3 +1,5 @@
+//@ts-nocheck
+
 export function extractContours(
   image: any,
   mode: any,

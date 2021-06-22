@@ -1,6 +1,7 @@
+// @ts-nocheck
+
 import { Fab } from "@rmwc/fab";
 import { MenuItem, SimpleMenu } from "@rmwc/menu";
-import { h } from "preact";
 import { useState } from "preact/hooks";
 import { useDidMount } from "rooks";
 

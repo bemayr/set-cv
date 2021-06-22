@@ -57,6 +57,7 @@ const App: FunctionalComponent = () => {
       <Camera ref={videoRef} cameraReady={() => send("CAMERA_READY")} />
       <Controls
         masterState={masterState}
+        isInitializing={state.hasTag("initializing")}
         toggleMasterState={() => send("TOGGLE_MASTER")}
         cameraSelected={(camera) => send(model.events.CAMERA_SELECTED(camera.deviceId))}
         timeoutSelected={(timeout) => send(model.events.SET_REPORT_TIMEOUT(timeout === "none" ? 1000000 : timeout))} // TODO: I don't like this

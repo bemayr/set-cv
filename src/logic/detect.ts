@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { Ref } from "preact/hooks";
 import combinations, {
   Card,

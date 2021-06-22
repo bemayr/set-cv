@@ -1,7 +1,8 @@
+// @ts-nocheck
+
 import { Fab } from "@rmwc/fab";
 import { ListDivider } from "@rmwc/list";
 import { MenuItem, SimpleMenu } from "@rmwc/menu";
-import { h } from "preact";
 
 const timeouts: [number, string][] = [
   [15000, "15s"],

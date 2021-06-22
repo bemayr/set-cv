@@ -4,8 +4,8 @@ import { MenuItem, SimpleMenu } from "@rmwc/menu";
 import { h } from "preact";
 
 const timeouts: [number, string][] = [
+  [15000, "15s"],
   [30000, "30s"],
-  [45000, "45s"],
   [60000, "1m"],
 ];
 

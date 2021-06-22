@@ -158,7 +158,7 @@ export const machine = createMachine<typeof model>(
                 states: {
                   initial: {
                     always: [
-                      { target: "setVisible", cond: "isSetVisible" },
+                      { target: "setVisible", cond: "isSetDetected" },
                       { target: "noSetVisible" },
                     ],
                   },
@@ -166,11 +166,12 @@ export const machine = createMachine<typeof model>(
                     on: {
                       DETECTION_DONE: {
                         target: "setVisible",
-                        cond: "isSetVisible",
+                        cond: "isSetDetected",
                       },
                     },
                   },
                   setVisible: {
+                    entry: ["setVisibleSets"],
                     after: {
                       REPORT_TIMEOUT_ELAPSED: {
                         actions: "reportSet",
@@ -182,7 +183,7 @@ export const machine = createMachine<typeof model>(
                         on: {
                           DETECTION_DONE: {
                             target: "unsure",
-                            cond: "detected==visible",
+                            cond: "detected!=visible",
                           },
                         },
                       },
@@ -190,7 +191,7 @@ export const machine = createMachine<typeof model>(
                         on: {
                           DETECTION_DONE: {
                             target: "sure",
-                            cond: "detected!=visible",
+                            cond: "detected==visible",
                           },
                         },
                         after: {
@@ -215,7 +216,11 @@ export const machine = createMachine<typeof model>(
       REPORT_TIMEOUT_ELAPSED: ({ reportTimeout }) => reportTimeout,
     },
     guards: {
-      isSetVisible: ({ visibleSets }) => visibleSets.length > 0,
+      isSetDetected: ({ detectedSets }) => detectedSets.length > 0,
+      "detected==visible": ({ detectedSets, visibleSets }) =>
+      detectedSets.length === visibleSets.length,
+      "detected!=visible": ({ detectedSets, visibleSets }) =>
+      detectedSets.length !== visibleSets.length,
     },
     actions: {
       stopCameraStream: ({ cameraStream }) => {
@@ -256,8 +261,13 @@ export const machine = createMachine<typeof model>(
           return event.data;
         },
       }),
+      setVisibleSets: assign({
+        visibleSets: ({ detectedSets }) => detectedSets,
+      }),
       reportSet: () => {
-        const msg = new SpeechSynthesisUtterance("There is a Set visible on the Table");
+        const msg = new SpeechSynthesisUtterance(
+          "There is a Set visible on the Table"
+        );
         window.speechSynthesis.speak(msg);
       },
     },

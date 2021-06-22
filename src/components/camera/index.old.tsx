@@ -389,7 +389,7 @@ const SetCamera: FunctionalComponent = () => {
       const detectedCard = createCard({
         count: extractCount(shapeContours),
         shape: extractShape(shapeContours),
-        color: extractColor(card, cardMask),
+        color: extractColor(card, shapeContours),
         fill: extractFill(card, shapeContours),
       });
 
@@ -412,17 +412,15 @@ const SetCamera: FunctionalComponent = () => {
         if (approximation.size().height === 4) return "diamond";
         return "oval";
       }
-      function extractColor(card: Mat, mask: Mat): Color {
-        // @ts-ignore
-        const [red, green, blue] = cv.mean(card, mask);
-        if (green > red && green > blue) return "green";
-        if (red > green && red > blue) return "red";
-        return "purple";
-      }
-      function extractFill(card: Mat, contours: ApproximatedContours): Fill {
-        const gray = card.clone();
-        cv.cvtColor(card, gray, cv.COLOR_RGBA2GRAY);
-        cv.threshold(gray, gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+      function createMask(card: Mat, contours: ApproximatedContours, mode: "fill" | "border" = "fill", invert: boolean = false, includeShapeBorder: boolean = false): Mat {
+        let line_width = 3;
+        if (contours.length > 0) {
+          line_width = contours[0].contour.size().height * 0.02;
+        }
+        line_width = line_width < 3 ? 3 : line_width;
+
+        const contoursVec = new cv.MatVector();
+        contours.forEach(({ contour }) => contoursVec.push_back(contour));
 
         let mask = new cv.Mat(
           card.rows,
@@ -431,41 +429,93 @@ const SetCamera: FunctionalComponent = () => {
           new cv.Scalar(0)
         );
 
-        const contoursVec = new cv.MatVector();
-        contours.forEach(({ contour }) => contoursVec.push_back(contour));
+        switch (mode) {
+          case "fill":
+            cv.drawContours(
+              mask,
+              // @ts-ignore
+              contoursVec,
+              -1,
+              new cv.Scalar(255),
+              cv.FILLED
+            );
+            break;
+          case "border":
+            cv.drawContours(
+              mask,
+              // @ts-ignore
+              contoursVec,
+              -1,
+              new cv.Scalar(255),
+              line_width,
+              cv.LINE_8
+            );
+            break;
+        }
 
-        // Fill Shapes
-        cv.drawContours(
-          mask,
-          // @ts-ignore
-          contoursVec,
-          -1,
-          new cv.Scalar(255),
-          cv.FILLED
-        );
+        // Invert Mask
+        if (invert) {
+          cv.bitwise_not(mask, mask)
+        }
+
         // Erase Contours
-        cv.drawContours(
-          mask,
-          // @ts-ignore
-          contoursVec,
-          -1,
-          new cv.Scalar(0),
-          10,
-          cv.LINE_8
-        );
+        if (mode === "fill" && !includeShapeBorder) {
+          cv.drawContours(
+            mask,
+            // @ts-ignore
+            contoursVec,
+            -1,
+            new cv.Scalar(0),
+            line_width,
+            cv.LINE_8
+          );
+        }
+        contoursVec.delete();
+        return mask;
+      }
+      function extractColor(card: Mat, contours: ApproximatedContours): Color {
+        const min_dif = 0.02;
+        const mask = createMask(card, contours, "border");
+        const mask_invers = createMask(card, contours, "fill", true, false);
+        // @ts-ignore
+        const [r_white, g_white, b_white] = cv.mean(card, mask_invers);
+        // @ts-ignore
+        let [red, green, blue] = cv.mean(card, mask);
+        [red, green, blue] = [red / r_white, green / g_white, blue / b_white];
+
+        mask.delete();
+        mask_invers.delete();
+
+        if (green - red > min_dif && green - blue > min_dif) return "green";
+        if (red - green > min_dif && red - blue > min_dif) return "red";
+        return "purple";
+      }
+      function extractFill(card: Mat, contours: ApproximatedContours): Fill {
+        const gray = card.clone();
+        cv.cvtColor(card, gray, cv.COLOR_RGBA2GRAY);
+        cv.normalize(gray, gray, 0, 255, cv.NORM_MINMAX)
+
+        const mask = createMask(card, contours, "fill");
+        const mask_invers = createMask(card, contours, "fill", true);
 
         cv.imshow(cardRef.current!, gray);
         cv.imshow(cardMaskRef.current!, mask);
 
         // @ts-ignore
-        const mean = cv.mean(gray, mask)[0];
+        const mean_symbols = cv.mean(gray, mask)[0];
+        // @ts-ignore
+        const mean_card = cv.mean(gray, mask_invers)[0];
+
         gray.delete();
         mask.delete();
+        mask_invers.delete();
 
-        if (mean < 10) return "solid";
-        if (mean > 245) return "blank";
-        return "striped";
+        const mean_similarity = mean_symbols / mean_card
+        if (mean_similarity > 0.9) return "blank";
+        if (mean_similarity > 0.7) return "striped";
+        return "solid";
       }
+
 
       // cv.imshow(cardMaskRef.current!, cardoverlay);
 

@@ -108,6 +108,28 @@ export const machine = createMachine<typeof model>(
         if (cameraStream !== undefined)
           cameraStream.getTracks().forEach((track) => track.stop());
       },
+      assignStreamDimension: assign(({ cameraStream }) => {
+        const { width, height } = cameraStream
+          .getVideoTracks()[0]
+          .getSettings();
+        return {
+          streamDimension: {
+            width: width!,
+            height: height!,
+          },
+        };
+      }),
+      assignVideoDimension: assign(({ streamDimension, orientation }) => {
+        const { width = 0, height = 0 } = streamDimension || {};
+        const MAX = 600;
+        const scale = Math.min(MAX / width!, MAX / height!);
+        return {
+          videoDimension: {
+            width: width! * scale,
+            height: height! * scale,
+          },
+        };
+      }),
     },
     services: {
       startCamera: async ({ selectedCamera }) =>

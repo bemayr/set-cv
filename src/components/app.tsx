@@ -27,6 +27,11 @@ const App: FunctionalComponent = () => {
     actions: {
       startVideo: ({ cameraStream }) =>
         (videoRef.current.srcObject = cameraStream),
+      setVideoDimension: ({ videoDimension: { width, height } }) => {
+        videoRef.current.width = width;
+        videoRef.current.height = height;
+        console.log({ "video dimensions set to": { width, height } });
+      },
     },
     services: {
       loadOpenCV: () => loadOpencv({ opencvJsLocation: "./assets/opencv.js" }),

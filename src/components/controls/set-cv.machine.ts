@@ -21,15 +21,6 @@ export const machine = createMachine<typeof model>({
                         id: "loadOpenCV",
                         src: "loadOpenCV",
                         onDone: {
-                            target: "initializing"
-                        }
-                    }
-                },
-                initializing: {
-                    invoke: {
-                        id: "initializeOpenCV",
-                        src: "initializeOpenCV",
-                        onDone: {
                             target: "ready"
                         }
                     }

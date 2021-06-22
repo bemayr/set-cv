@@ -31,3 +31,15 @@ React Tracking
 7. Detect Sets
    - https://towardsdatascience.com/detecting-set-cards-using-transfer-learning-b297dcf3a564
 8. ⬜ Draw on Camera Image
+
+
+- more resources:
+- https://en.wikipedia.org/wiki/Quadrilateral
+- https://sdsawtelle.github.io/blog/output/automated-gauge-readout-with-opencv.html
+- https://hal.archives-ouvertes.fr/hal-02441469/document
+- https://programmer.help/blogs/5cca5fb29048d.html
+- https://github.com/cancerberoSgx/mirada/tree/master/mirada-ts-playground
+- https://github.com/opencv/opencv/issues/16162
+- https://programmerah.com/detailed-explanation-of-opencv-approxpolydp-function-24674/
+- https://stackoverflow.com/questions/51528462/opencv-js-perspective-transform/51601196
+- https://github.com/EdjeElectronics/OpenCV-Playing-Card-Detector/blob/master/Cards.py

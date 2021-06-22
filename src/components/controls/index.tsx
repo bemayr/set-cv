@@ -3,6 +3,7 @@ import Flex from "@react-css/flex";
 import { Fab } from "@rmwc/fab";
 import { Icon } from "@rmwc/icon";
 import { useMachine } from "@xstate/react";
+import { loadOpencv } from "mirada";
 import { FunctionalComponent, h } from "preact";
 import CameraSelect from "./components/CameraSelect";
 import TimeoutSelect from "./components/TimeoutSelect";
@@ -14,10 +15,7 @@ const Controls: FunctionalComponent = () => {
   const [state, send, service] = useMachine(machine, {
     devTools: true,
     services: {
-      loadOpenCV: loadOpenCV,
-      initializeOpenCV: () => new Promise((resolve) => {
-        registerRuntimeInitializedHandler(() => resolve({}))
-      })
+      loadOpenCV: () => loadOpencv({opencvJsLocation: "./assets/opencv.js"}),
     },
   });
 

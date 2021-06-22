@@ -2,7 +2,7 @@ import { FunctionalComponent, h } from "preact";
 import { useSizes as useWindowDimensions } from "react-use-sizes";
 import Camera from "./camera";
 import Controls from "./controls";
-import { useMachine } from "@xstate/react";
+import { useMachine, useSelector } from "@xstate/react";
 import { loadOpencv } from "mirada";
 import { machine, model } from "../logic/set-cv.machine";
 
@@ -14,6 +14,7 @@ import "@rmwc/menu/styles";
 import "@rmwc/list/styles";
 import { useDidMount } from "rooks";
 import { useRef } from "preact/hooks";
+import { makeDetectSets } from "../logic/detect";
 
 const App: FunctionalComponent = () => {
   const dimensions = useWindowDimensions();
@@ -30,13 +31,16 @@ const App: FunctionalComponent = () => {
       setVideoDimension: ({ videoDimension: { width, height } }) => {
         videoRef.current.width = width;
         videoRef.current.height = height;
-        console.log({ "video dimensions set to": { width, height } });
       },
     },
     services: {
       loadOpenCV: () => loadOpencv({ opencvJsLocation: "./assets/opencv.js" }),
+      detectSets: makeDetectSets(videoRef),
     },
   });
+  const masterState = useSelector(service, (state) =>
+    state.hasTag("master-stopped") ? "stopped" : "running"
+  );
 
   useDidMount(() =>
     navigator.mediaDevices
@@ -51,7 +55,12 @@ const App: FunctionalComponent = () => {
     <div id="app">
       {/* <SetCamera/> */}
       <Camera ref={videoRef} cameraReady={() => send("CAMERA_READY")} />
-      <Controls />
+      <Controls
+        masterState={masterState}
+        toggleMasterState={() => send("TOGGLE_MASTER")}
+        cameraSelected={(camera) => send(model.events.CAMERA_SELECTED(camera.deviceId))}
+        timeoutSelected={(timeout) => send(model.events.SET_REPORT_TIMEOUT(timeout === "none" ? 1000000 : timeout))} // TODO: I don't like this
+      />
     </div>
   );
 };

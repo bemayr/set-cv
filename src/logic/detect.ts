@@ -1,5 +1,5 @@
 import { Ref } from "preact/hooks";
-import combinations, { Card, Color, Count, createCard, Fill, isSet, Shape } from "../../types/set";
+import combinations, { Card, Color, Count, createCard, Fill, isSet, Shape } from "../types/set";
 import { extractContours } from "../util/opencv-helpers";
 import { machine } from "./set-cv.machine";
 

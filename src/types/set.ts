@@ -81,6 +81,8 @@ export default function combinations<T>(collection: T[], n: number): T[][] {
   return recur(collection, n);
 }
 
+export type Set = [Card, Card, Card]
+
 export function isSet(cards: [Card, Card, Card]): boolean {
   const result = cards
     .map((card) => [

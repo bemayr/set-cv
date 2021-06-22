@@ -7,7 +7,14 @@ import CameraSelect from "./components/CameraSelect";
 import TimeoutSelect from "./components/TimeoutSelect";
 import style from "./style.css";
 
-const Controls: FunctionalComponent = () => {
+interface ControlProps {
+  masterState: "stopped" | "running",
+  toggleMasterState: () => void,
+  cameraSelected: (camera: MediaDeviceInfo) => void
+  timeoutSelected: (timeout: number | "none") => void
+}
+
+const Controls: FunctionalComponent<ControlProps> = (props) => {
   return (
     <Flex
       className={style.controls}
@@ -22,13 +29,14 @@ const Controls: FunctionalComponent = () => {
         <Spinner colors={["red", "green", "purple"]} size={40} thick />
       </Flex.Item>
       <Flex row style={{ margin: "2em" }} justifySpaceBetween alignItemsCenter>
-        <CameraSelect selectedCamera={undefined} cameraSelected={console.log} />
+        <CameraSelect selectedCamera={undefined} cameraSelected={props.cameraSelected} />
         <Fab
           style={{ margin: "2em" }}
-          label="Start"
+          label={props.masterState === "stopped" ? "Start" : "Stop"}
           theme={["primaryBg", "onPrimary"]}
+          onClick={props.toggleMasterState}
         />
-        <TimeoutSelect selectedTimeout="none" timeoutSelected={console.log} />
+        <TimeoutSelect selectedTimeout="none" timeoutSelected={props.timeoutSelected} />
       </Flex>
     </Flex>
   );

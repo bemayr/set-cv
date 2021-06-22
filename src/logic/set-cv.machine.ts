@@ -12,7 +12,7 @@ export const model = createModel(
     streamDimension: undefined as undefined | { width: number; height: number },
     videoDimension: { width: 0, height: 0 },
     orientation: "landscape" as Orientation,
-    reportTimeout: 30000,
+    reportTimeout: 15000,
     fps: 1,
     detectedSets: [] as Set[],
     visibleSets: [] as Set[],

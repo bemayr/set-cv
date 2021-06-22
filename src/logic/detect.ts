@@ -1,5 +1,13 @@
 import { Ref } from "preact/hooks";
-import combinations, { Card, Color, Count, createCard, Fill, isSet, Shape } from "../types/set";
+import combinations, {
+  Card,
+  Color,
+  Count,
+  createCard,
+  Fill,
+  isSet,
+  Shape,
+} from "../types/set";
 import { extractContours } from "../util/opencv-helpers";
 import { machine } from "./set-cv.machine";
 
@@ -44,14 +52,22 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
       };
     }
 
-    function mightBeCard({ approximation }: { approximation: cv.Mat }): boolean {
+    function mightBeCard({
+      approximation,
+    }: {
+      approximation: cv.Mat;
+    }): boolean {
       const has4Corners = approximation.size().height === 4;
       const hasMinimumSize = cv.contourArea(approximation) > 500;
       const isConvex = cv.isContourConvex(approximation);
       return has4Corners && hasMinimumSize && isConvex;
     }
 
-    function mightBeShape({ approximation }: { approximation: cv.Mat }): boolean {
+    function mightBeShape({
+      approximation,
+    }: {
+      approximation: cv.Mat;
+    }): boolean {
       const hasMinimumSize = cv.contourArea(approximation) > 2000;
       return hasMinimumSize;
     }
@@ -176,7 +192,7 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
       const detectedCard = createCard({
         count: extractCount(shapeContours),
         shape: extractShape(shapeContours),
-        color: extractColor(card, cardMask),
+        color: extractColor(card, shapeContours),
         fill: extractFill(card, shapeContours),
       });
 
@@ -199,17 +215,21 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
         if (approximation.size().height === 4) return "diamond";
         return "oval";
       }
-      function extractColor(card: cv.Mat, mask: cv.Mat): Color {
-        // @ts-ignore
-        const [red, green, blue] = cv.mean(card, mask);
-        if (green > red && green > blue) return "green";
-        if (red > green && red > blue) return "red";
-        return "purple";
-      }
-      function extractFill(card: cv.Mat, contours: ApproximatedContours): Fill {
-        const gray = card.clone();
-        cv.cvtColor(card, gray, cv.COLOR_RGBA2GRAY);
-        cv.threshold(gray, gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+      function createMask(
+        card: cv.Mat,
+        contours: ApproximatedContours,
+        mode: "fill" | "border" = "fill",
+        invert: boolean = false,
+        includeShapeBorder: boolean = false
+      ): cv.Mat {
+        let line_width = 3;
+        if (contours.length > 0) {
+          line_width = contours[0].contour.size().height * 0.02;
+        }
+        line_width = line_width < 3 ? 3 : line_width;
+
+        const contoursVec = new cv.MatVector();
+        contours.forEach(({ contour }) => contoursVec.push_back(contour));
 
         let mask = new cv.Mat(
           card.rows,
@@ -218,37 +238,91 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
           new cv.Scalar(0)
         );
 
-        const contoursVec = new cv.MatVector();
-        contours.forEach(({ contour }) => contoursVec.push_back(contour));
+        switch (mode) {
+          case "fill":
+            cv.drawContours(
+              mask,
+              // @ts-ignore
+              contoursVec,
+              -1,
+              new cv.Scalar(255),
+              cv.FILLED
+            );
+            break;
+          case "border":
+            cv.drawContours(
+              mask,
+              // @ts-ignore
+              contoursVec,
+              -1,
+              new cv.Scalar(255),
+              line_width,
+              cv.LINE_8
+            );
+            break;
+        }
 
-        // Fill Shapes
-        cv.drawContours(
-          mask,
-          // @ts-ignore
-          contoursVec,
-          -1,
-          new cv.Scalar(255),
-          cv.FILLED
-        );
+        // Invert Mask
+        if (invert) {
+          cv.bitwise_not(mask, mask);
+        }
+
         // Erase Contours
-        cv.drawContours(
-          mask,
-          // @ts-ignore
-          contoursVec,
-          -1,
-          new cv.Scalar(0),
-          10,
-          cv.LINE_8
-        );
+        if (mode === "fill" && !includeShapeBorder) {
+          cv.drawContours(
+            mask,
+            // @ts-ignore
+            contoursVec,
+            -1,
+            new cv.Scalar(0),
+            line_width,
+            cv.LINE_8
+          );
+        }
+        contoursVec.delete();
+        return mask;
+      }
+      function extractColor(
+        card: cv.Mat,
+        contours: ApproximatedContours
+      ): Color {
+        const min_dif = 0.02;
+        const mask = createMask(card, contours, "border");
+        const mask_invers = createMask(card, contours, "fill", true, false);
+        // @ts-ignore
+        const [r_white, g_white, b_white] = cv.mean(card, mask_invers);
+        // @ts-ignore
+        let [red, green, blue] = cv.mean(card, mask);
+        [red, green, blue] = [red / r_white, green / g_white, blue / b_white];
+
+        mask.delete();
+        mask_invers.delete();
+
+        if (green - red > min_dif && green - blue > min_dif) return "green";
+        if (red - green > min_dif && red - blue > min_dif) return "red";
+        return "purple";
+      }
+      function extractFill(card: cv.Mat, contours: ApproximatedContours): Fill {
+        const gray = card.clone();
+        cv.cvtColor(card, gray, cv.COLOR_RGBA2GRAY);
+        cv.normalize(gray, gray, 0, 255, cv.NORM_MINMAX);
+
+        const mask = createMask(card, contours, "fill");
+        const mask_invers = createMask(card, contours, "fill", true);
 
         // @ts-ignore
-        const mean = cv.mean(gray, mask)[0];
+        const mean_symbols = cv.mean(gray, mask)[0];
+        // @ts-ignore
+        const mean_card = cv.mean(gray, mask_invers)[0];
+
         gray.delete();
         mask.delete();
+        mask_invers.delete();
 
-        if (mean < 10) return "solid";
-        if (mean > 245) return "blank";
-        return "striped";
+        const mean_similarity = mean_symbols / mean_card;
+        if (mean_similarity > 0.9) return "blank";
+        if (mean_similarity > 0.7) return "striped";
+        return "solid";
       }
 
       // cv.imshow(cardMaskRef.current!, cardoverlay);
@@ -271,8 +345,9 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
     cleanupCardContours();
 
     const cards = detectedCards.filter((card) => card !== undefined) as Card[];
-    const sets = combinations(cards, 3)
-      .filter((possibleSet) => isSet(possibleSet as [Card, Card, Card]));
+    const sets = combinations(cards, 3).filter((possibleSet) =>
+      isSet(possibleSet as [Card, Card, Card])
+    );
 
     return Promise.resolve(sets);
   };

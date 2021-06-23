@@ -21,7 +21,7 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
     const cap = new cv.VideoCapture(videoRef.current);
     const dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
 
-    // console.log(src.rows)
+    console.log(src.rows)
 
     cap.read(src);
     cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
@@ -147,12 +147,6 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
       const card = extractCard(src, approximation);
 
       const cardMask = new cv.Mat(card.rows, card.cols, cv.CV_8UC1);
-      const cardoverlay = new cv.Mat(
-        cardMask.rows,
-        cardMask.cols,
-        cv.CV_8UC4,
-        new cv.Scalar(0, 0, 0, 0)
-      );
 
       cv.cvtColor(card, cardMask, cv.COLOR_RGBA2GRAY);
       cv.GaussianBlur(
@@ -176,6 +170,8 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
         result: { contours },
         cleanup: cleanupShapeContours,
       } = extractContours(cardMask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      cardMask.delete()
 
       const shapeContours = contours
         .sort(byContourArea)
@@ -334,6 +330,7 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
 
       cleanupShapeContours();
 
+      card.delete()
       contour.delete();
       approximation.delete();
 

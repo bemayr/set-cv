@@ -7,6 +7,7 @@ import { machine, model } from "../logic/set-cv.machine";
 import { useDidMount } from "rooks";
 import { useRef } from "preact/hooks";
 import { makeDetectSets } from "../logic/detect";
+import { enableAutoTTS } from 'enable-auto-tts';
 
 // rmwc Styles
 import "@rmwc/theme/styles";
@@ -49,6 +50,8 @@ const App: FunctionalComponent = () => {
       })
   );
 
+  useDidMount(() => enableAutoTTS())
+
   return (
     <div id="app">
       <Camera ref={videoRef} cameraReady={() => send("CAMERA_READY")} />
@@ -68,7 +71,7 @@ const App: FunctionalComponent = () => {
           )
         } // TODO: I don't like this
       />
-      <p style={{position: "absolute", top: 0, left: 0, color: "white"}}>{state.context.visibleSets.length} Sets on the Table</p>
+      <p style={{position: "absolute", top: 0, left: 0, color: "white"}}>{state.context.detectedSets.length} Sets on the Table</p>
       {/* <canvas id="canvasOutput" style={{position: "absolute", top: 0, left: 0, width: 200, height: 310}} />
       <canvas id="canvasOutputOverlay" style={{position: "absolute", top: 0, left: 0, width: 200, height: 310, opacity: .5}} /> */}
     </div>

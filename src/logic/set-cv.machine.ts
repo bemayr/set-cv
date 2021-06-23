@@ -276,6 +276,7 @@ export const machine = createMachine<typeof model>(
         const msg = new SpeechSynthesisUtterance(
           "There is a Set visible on the Table"
         );
+        msg.lang = "en-US"
         window.speechSynthesis.speak(msg);
       },
     },

@@ -35,13 +35,13 @@ const Controls: FunctionalComponent<ControlProps> = (props) => {
       </Flex.Item>
       <Flex row style={{ margin: "2em" }} justifySpaceBetween alignItemsCenter>
         {isStopped && <CameraSelect selectedCamera={undefined} cameraSelected={props.cameraSelected} />}
-        <Fab
+        {!props.isInitializing && <Fab
           style={{ margin: "2em" }}
           label={isStopped ? "Start" : "Stop"}
           theme={["primaryBg", "onPrimary"]}
           disabled={props.isInitializing}
           onClick={props.toggleMasterState}
-        />
+        />}
         {isStopped && <TimeoutSelect selectedTimeout={props.reportTimeout} timeoutSelected={props.timeoutSelected} />}
       </Flex>
     </Flex>

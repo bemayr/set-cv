@@ -12,7 +12,7 @@ export const model = createModel(
     streamDimension: undefined as undefined | { width: number; height: number },
     videoDimension: { width: 0, height: 0 },
     orientation: "landscape" as Orientation,
-    reportTimeout: 15000,
+    reportTimeout: 5000,
     fps: 1,
     detectedSets: [] as Set[],
     visibleSets: [] as Set[],
@@ -177,6 +177,11 @@ export const machine = createMachine<typeof model>(
                         cond: "isSetDetected",
                       },
                     },
+                    after: {
+                      REPORT_TIMEOUT_ELAPSED: {
+                        actions: "reportNoSet",
+                      },
+                    },
                   },
                   setVisible: {
                     entry: ["setVisibleSets"],
@@ -275,6 +280,13 @@ export const machine = createMachine<typeof model>(
       reportSet: () => {
         const msg = new SpeechSynthesisUtterance(
           "There is a Set visible on the Table"
+        );
+        msg.lang = "en-US"
+        window.speechSynthesis.speak(msg);
+      },
+      reportNoSet: () => {
+        const msg = new SpeechSynthesisUtterance(
+          "There is no Set visible on the Table, please draw more cards!"
         );
         msg.lang = "en-US"
         window.speechSynthesis.speak(msg);

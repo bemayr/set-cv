@@ -5,6 +5,7 @@ import { ListDivider } from "@rmwc/list";
 import { MenuItem, SimpleMenu } from "@rmwc/menu";
 
 const timeouts: [number, string][] = [
+  [5000, "5s"],
   [15000, "15s"],
   [30000, "30s"],
   [60000, "1m"],

@@ -20,12 +20,8 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
     const src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     const cap = new cv.VideoCapture(videoRef.current);
     const dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
-    const overlay = new cv.Mat(
-      src.rows,
-      src.cols,
-      cv.CV_8UC4,
-      new cv.Scalar(0, 0, 0, 0)
-    );
+
+    console.log(src.rows)
 
     cap.read(src);
     cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
@@ -342,14 +338,17 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
       return detectedCard;
     });
 
-    overlay.delete();
     dst.delete();
+    src.delete();
     cleanupCardContours();
 
     const cards = detectedCards.filter((card) => card !== undefined) as Card[];
     const sets = combinations(cards, 3).filter((possibleSet) =>
       isSet(possibleSet as [Card, Card, Card])
     );
+
+    console.log(cards.length)
+    console.log(sets.length)
 
     return Promise.resolve(sets);
   };

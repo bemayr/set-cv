@@ -21,7 +21,7 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
     const cap = new cv.VideoCapture(videoRef.current);
     const dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
 
-    console.log(src.rows)
+    // console.log(src.rows)
 
     cap.read(src);
     cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
@@ -209,6 +209,7 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
       function extractShape(contours: ApproximatedContours): Shape | undefined {
         const approximation = contours[0]?.approximation;
         if (approximation === undefined) return undefined;
+        // console.log(!cv.isContourConvex(approximation))
         if (!cv.isContourConvex(approximation)) return "squiggle";
         if (approximation.size().height === 4) return "diamond";
         return "oval";
@@ -220,11 +221,7 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
         invert: boolean = false,
         includeShapeBorder: boolean = false
       ): cv.Mat {
-        let line_width = 3;
-        if (contours.length > 0) {
-          line_width = contours[0].contour.size().height * 0.02;
-        }
-        line_width = line_width < 3 ? 3 : line_width;
+        let line_width = 10
 
         const contoursVec = new cv.MatVector();
         contours.forEach(({ contour }) => contoursVec.push_back(contour));
@@ -308,22 +305,27 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
         const mask = createMask(card, contours, "fill");
         const mask_invers = createMask(card, contours, "fill", true);
 
+        // cv.imshow('canvasOutput', card);
+        // cv.imshow('canvasOutputOverlay', mask);
+
         // @ts-ignore
         const mean_symbols = cv.mean(gray, mask)[0];
         // @ts-ignore
         const mean_card = cv.mean(gray, mask_invers)[0];
+
+        // console.log(mean_symbols)
+        // console.log(mean_card)
 
         gray.delete();
         mask.delete();
         mask_invers.delete();
 
         const mean_similarity = mean_symbols / mean_card;
-        if (mean_similarity > 0.9) return "blank";
-        if (mean_similarity > 0.7) return "striped";
-        return "solid";
+        // console.log(mean_similarity)
+        if (mean_similarity > .97) return "blank";
+        if (mean_similarity < .2) return "solid";
+        return "striped";
       }
-
-      // cv.imshow(cardMaskRef.current!, cardoverlay);
 
       shapeContours.forEach(({ contour, approximation }) => {
         contour.delete();
@@ -347,8 +349,8 @@ export function makeDetectSets(videoRef: Ref<HTMLVideoElement>) {
       isSet(possibleSet as [Card, Card, Card])
     );
 
-    console.log(cards.length)
-    console.log(sets.length)
+    // console.log(JSON.stringify(cards))
+    console.log(JSON.stringify(sets))
 
     return Promise.resolve(sets);
   };

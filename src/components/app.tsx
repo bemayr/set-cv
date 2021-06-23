@@ -68,6 +68,9 @@ const App: FunctionalComponent = () => {
           )
         } // TODO: I don't like this
       />
+      <p style={{position: "absolute", top: 0, left: 0, color: "white"}}>{state.context.visibleSets.length} Sets on the Table</p>
+      {/* <canvas id="canvasOutput" style={{position: "absolute", top: 0, left: 0, width: 200, height: 310}} />
+      <canvas id="canvasOutputOverlay" style={{position: "absolute", top: 0, left: 0, width: 200, height: 310, opacity: .5}} /> */}
     </div>
   );
 };
